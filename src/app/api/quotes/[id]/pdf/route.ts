@@ -229,7 +229,7 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
 
   const pdfBytes = await pdfDoc.save()
 
-  return new Response(pdfBytes, {
+  return new Response(Buffer.from(pdfBytes), {
     headers: {
       'Content-Type': 'application/pdf',
       'Content-Disposition': `attachment; filename="${quote.quoteNumber}.pdf"`,
