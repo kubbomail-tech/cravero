@@ -50,6 +50,7 @@ export default function NuevoPresupuestoPage() {
   const [showClientDrop, setShowClientDrop] = useState(false)
   const [wizardStep, setWizardStep] = useState<WizardStep | null>(null)
   const [draft, setDraft] = useState<FurnitureItem | null>(null)
+  const [started, setStarted] = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -140,17 +141,123 @@ export default function NuevoPresupuestoPage() {
 
   // ─── Shared classes (Precision Padding Edition) ─────────────────────────────
   const lbl = 'block text-[10px] font-bold text-slate-500 uppercase tracking-[0.1em] mb-2 ml-1'
-  const inp = 'w-full h-12 px-6 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 transition-all placeholder:text-slate-300 shadow-sm'
-  const sel = 'w-full h-12 px-6 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-2xl outline-none focus:border-indigo-500 transition-all cursor-pointer'
-  const numInp = 'w-full h-12 px-4 text-lg font-black text-slate-900 text-center bg-white border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 transition-all shadow-sm'
-  const sideBtn = (active: boolean) => `flex-1 h-11 text-[10px] font-black uppercase tracking-wider rounded-xl border-2 transition-all ${active ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-100' : 'bg-white border-slate-100 text-slate-400 hover:border-indigo-300 hover:text-indigo-600'}`
-  const btnPrimary = 'h-12 px-10 bg-indigo-600 text-white text-sm font-bold rounded-full hover:bg-indigo-700 active:scale-95 transition-all shadow-lg shadow-indigo-100 disabled:opacity-40 disabled:grayscale'
+  const inp = 'w-full h-10 px-3 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-[#198e85]/10 focus:border-[#198e85] transition-all placeholder:text-slate-300 shadow-sm'
+  const sel = 'w-full h-10 px-3 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-xl outline-none focus:border-[#198e85] transition-all cursor-pointer'
+  const numInp = 'w-full h-12 px-4 text-lg font-black text-slate-900 text-center bg-white border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-[#198e85]/10 focus:border-[#198e85] transition-all shadow-sm'
+  const sideBtn = (active: boolean) => `flex-1 h-11 text-[10px] font-black uppercase tracking-wider rounded-xl border-2 transition-all ${active ? 'bg-[#198e85] border-[#198e85] text-white shadow-lg shadow-[#ccf2ef]' : 'bg-white border-slate-100 text-slate-400 hover:border-[#80d4d0] hover:text-[#198e85]'}`
+  const btnPrimary = 'h-12 px-10 bg-[#198e85] text-white text-sm font-bold rounded-full hover:bg-[#136e67] active:scale-95 transition-all shadow-lg shadow-[#ccf2ef] disabled:opacity-40 disabled:grayscale'
   const btnDark = 'h-12 px-10 bg-slate-900 text-white text-sm font-bold rounded-full hover:bg-slate-800 active:scale-95 transition-all shadow-lg shadow-slate-200'
-  const btnGhost = 'text-xs font-bold uppercase tracking-widest text-slate-400 hover:text-indigo-600 transition-colors px-4'
+  const btnGhost = 'text-xs font-bold uppercase tracking-widest text-slate-400 hover:text-[#198e85] transition-colors px-4'
   const btnDanger = 'w-11 h-11 rounded-2xl bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all text-xl leading-none shadow-sm'
 
   const STEPS: WizardStep[] = ['type', 'cuts', 'hardware', 'confirm']
   const STEP_LABELS = ['Tipo', 'Cortes', 'Herrajes', 'Confirmar']
+
+  // ── PRE-STEP: datos generales ──────────────────────────────────────────
+  if (!started) return (
+    <>
+      <div className="page-header" style={{ marginBottom: '1rem' }}>
+        <div>
+          <h1 className="page-title">Nuevo presupuesto</h1>
+          <p className="page-subtitle">Completá los datos generales para comenzar</p>
+        </div>
+      </div>
+
+      <div className="max-w-2xl mx-auto">
+        <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
+
+          {/* Cliente */}
+          <div className="px-6 py-3 border-b border-slate-50">
+            <p className={lbl}>Cliente</p>
+            <div className="relative">
+              <input className={inp} placeholder="Buscar cliente…"
+                value={form.clientName || clientSearch}
+                onChange={e => { setClientSearch(e.target.value); setShowClientDrop(true); setForm(f => ({ ...f, clientId: '', clientName: '' })) }} />
+              {showClientDrop && clientSearch.length > 1 && (
+                <div className="absolute top-full mt-1 left-0 w-full bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden z-50">
+                  {clients.map(c => (
+                    <button key={c.id} className="w-full text-left px-4 py-2.5 hover:bg-[#f0faf9] border-b border-slate-50 last:border-0 transition-colors"
+                      onClick={() => { setForm(f => ({ ...f, clientId: c.id, clientName: c.fullName })); setClientSearch(c.fullName); setShowClientDrop(false) }}>
+                      <p className="text-sm font-semibold text-slate-900">{c.fullName}</p>
+                      {c.businessName && <p className="text-[11px] text-slate-400 uppercase">{c.businessName}</p>}
+                    </button>
+                  ))}
+                  <button className="w-full text-left px-4 py-2.5 bg-[#f0faf9] flex items-center gap-3 hover:bg-[#ccf2ef] transition-colors"
+                    onClick={async () => {
+                      const res = await fetch('/api/clients', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fullName: clientSearch }) })
+                      if (res.ok) { const c = await res.json(); setForm(f => ({ ...f, clientId: c.id, clientName: c.fullName })); setClientSearch(c.fullName); setShowClientDrop(false) }
+                    }}>
+                    <span className="w-5 h-5 rounded-full bg-[#198e85] text-white text-xs flex items-center justify-center font-bold shrink-0">+</span>
+                    <span className="text-sm font-semibold text-[#136e67]">Crear "{clientSearch}"</span>
+                  </button>
+                </div>
+              )}
+            </div>
+            {form.clientName && (
+              <div className="mt-1.5 bg-[#f0faf9] border border-[#ccf2ef] rounded-xl px-3 py-1.5 flex items-center gap-2">
+                <div className="w-5 h-5 rounded-full bg-[#198e85] text-white flex items-center justify-center text-[10px] font-bold shrink-0">{form.clientName[0].toUpperCase()}</div>
+                <p className="text-sm font-semibold text-[#0d5e59] truncate">{form.clientName}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Fechas + Variables en una fila */}
+          <div className="px-6 py-3 border-b border-slate-50 grid grid-cols-5 gap-3 items-end">
+            <div className="col-span-2">
+              <p className={lbl}>Emisión</p>
+              <input type="date" className={inp} value={form.issueDate} onChange={e => setForm(f => ({ ...f, issueDate: e.target.value }))} />
+            </div>
+            <div className="col-span-2">
+              <p className={lbl}>Vencimiento</p>
+              <input type="date" className={inp} value={form.expirationDate} onChange={e => setForm(f => ({ ...f, expirationDate: e.target.value }))} />
+            </div>
+            <div className="col-span-1" />
+          </div>
+
+          {/* Variables */}
+          <div className="px-6 py-3 border-b border-slate-50">
+            <p className={lbl}>Variables y Ajustes</p>
+            <div className="flex gap-2">
+              {[
+                { label: 'Mano de obra', key: 'laborPercentage', suffix: '%' },
+                { label: 'IVA', key: 'vatPercentage', suffix: '%' },
+                { label: 'Descuento', key: 'discountAmount', suffix: '$' },
+              ].map(({ label, key, suffix }) => (
+                <div key={key} className="flex-1 bg-slate-50 rounded-xl px-3 py-2 border border-slate-100">
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">{label}</p>
+                  <div className="flex items-center gap-1">
+                    <input type="number" className="w-full bg-transparent font-bold text-slate-800 outline-none text-sm"
+                      placeholder="0" value={(form as any)[key]}
+                      onChange={e => setForm(f => ({ ...f, [key]: parseFloat(e.target.value) || 0 }))} />
+                    <span className="text-xs font-bold text-slate-300">{suffix}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Observaciones */}
+          <div className="px-6 py-3 border-b border-slate-50">
+            <p className={lbl}>Observaciones <span className="normal-case font-normal text-slate-300">(opcional)</span></p>
+            <textarea className="w-full bg-white border border-slate-100 rounded-xl px-3 py-2 text-sm text-slate-700 outline-none focus:border-[#198e85] focus:ring-4 focus:ring-[#198e85]/10 h-14 resize-none transition-all placeholder:text-slate-300"
+              placeholder="Términos de pago, plazos, notas internas…"
+              value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
+          </div>
+
+          {/* Footer */}
+          <div className="px-6 py-3 bg-slate-50/50 flex items-center justify-between">
+            <button onClick={() => router.back()} className={btnGhost}>Cancelar</button>
+            <button
+              onClick={() => setStarted(true)}
+              disabled={!form.clientId}
+              className={btnPrimary}>
+              Continuar → Agregar muebles
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  )
 
   return (
     <>
@@ -246,7 +353,7 @@ export default function NuevoPresupuestoPage() {
           {/* Observaciones */}
           <section className="bg-white border border-slate-100 rounded-2xl shadow-sm p-6">
             <p className={lbl}>Observaciones</p>
-            <textarea className="w-full bg-white border border-slate-100 rounded-xl px-4 py-3 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 h-28 resize-none transition-all shadow-sm placeholder:text-slate-300"
+            <textarea className="w-full bg-white border border-slate-100 rounded-xl px-4 py-3 text-sm font-medium text-slate-800 outline-none focus:border-[#198e85] focus:ring-4 focus:ring-[#198e85]/10 h-28 resize-none transition-all shadow-sm placeholder:text-slate-300"
               placeholder="Términos de pago, plazos…"
               value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
           </section>
@@ -254,7 +361,7 @@ export default function NuevoPresupuestoPage() {
           {/* Resumen */}
           {items.length > 0 && (
             <section className="bg-slate-900 border border-slate-800 rounded-2xl shadow-lg p-6">
-              <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-4">Resumen del proyecto</p>
+              <p className="text-[10px] font-black text-[#22b8ae] uppercase tracking-widest mb-4">Resumen del proyecto</p>
               <div className="space-y-2">
                 <div className="flex justify-between text-xs font-medium text-slate-400"><span>Materiales e insumos</span><span className="text-slate-200 tabular-nums">{fmt(globalSubtotal)}</span></div>
                 <div className="flex justify-between text-xs font-medium text-slate-400"><span>Mano de obra ({form.laborPercentage}%)</span><span className="text-slate-200 tabular-nums">{fmt(labor)}</span></div>
@@ -275,7 +382,7 @@ export default function NuevoPresupuestoPage() {
             {wizardStep !== null && (
               <>
                 {/* Step indicator */}
-                <div className="flex items-center mb-10 overflow-x-auto pb-4 custom-scrollbar">
+                <div className="flex items-center mb-4 overflow-x-auto pb-1 custom-scrollbar">
                   {STEPS.map((s, i) => {
                     const activeIdx = STEPS.indexOf(wizardStep)
                     const active = s === wizardStep
@@ -284,14 +391,14 @@ export default function NuevoPresupuestoPage() {
                       <div key={s} className="flex items-center flex-1 last:flex-none">
                         <div className="flex items-center gap-3">
                           <div className={`w-9 h-9 rounded-2xl flex items-center justify-center text-xs font-black border-2 transition-all duration-300
-                            ${active ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-100'
-                              : done ? 'bg-indigo-50 border-indigo-200 text-indigo-600'
+                            ${active ? 'bg-[#198e85] border-[#198e85] text-white shadow-lg shadow-[#ccf2ef]'
+                              : done ? 'bg-[#f0faf9] border-[#ccf2ef] text-[#198e85]'
                               : 'bg-white border-slate-100 text-slate-300'}`}>
                             {done ? '✓' : i + 1}
                           </div>
                           <span className={`text-xs font-black uppercase tracking-wider whitespace-nowrap ${active ? 'text-slate-900' : 'text-slate-400'}`}>{STEP_LABELS[i]}</span>
                         </div>
-                        {i < 3 && <div className={`flex-1 min-w-[30px] h-0.5 mx-6 rounded-full transition-colors duration-500 ${done ? 'bg-indigo-600' : 'bg-slate-100'}`} />}
+                        {i < 3 && <div className={`flex-1 min-w-[30px] h-0.5 mx-6 rounded-full transition-colors duration-500 ${done ? 'bg-[#198e85]' : 'bg-slate-100'}`} />}
                       </div>
                     )
                   })}
@@ -299,24 +406,38 @@ export default function NuevoPresupuestoPage() {
 
                 {/* ── STEP 1: Tipo ────────────────────────────────────────── */}
                 {wizardStep === 'type' && (
-                  <div className="bg-white border border-slate-100 rounded-[2rem] shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    <div className="px-10 py-8 border-b border-slate-50">
-                      <h2 className="text-2xl font-black text-slate-900 leading-tight">¿Qué mueble vas a<br/>presupuestar ahora?</h2>
-                      <p className="text-sm font-medium text-slate-400 mt-2">Seleccioná una categoría para definir sus componentes</p>
+                  <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
+                    <div className="px-6 py-4 border-b border-slate-50 flex items-center justify-between">
+                      <div>
+                        <h2 className="text-sm font-bold text-slate-800">¿Qué mueble vas a presupuestar?</h2>
+                        <p className="text-xs text-slate-400 mt-0.5">Elegí el tipo o seleccionalo de la lista</p>
+                      </div>
+                      <button onClick={() => setWizardStep(null)} className={btnGhost}>Cancelar</button>
                     </div>
-                    <div className="p-8 grid grid-cols-2 lg:grid-cols-3 gap-4">
-                      {furnitureTypes.map(ft => (
-                        <button key={ft.id} onClick={() => selectType(ft)}
-                          className="flex flex-col gap-4 p-6 rounded-2xl border border-slate-100 bg-slate-50/50 hover:border-indigo-600 hover:bg-white hover:shadow-xl hover:shadow-indigo-500/10 text-left transition-all group">
-                          <div className="w-12 h-12 rounded-xl bg-white border border-slate-100 flex items-center justify-center text-slate-400 group-hover:text-indigo-600 group-hover:border-indigo-100 transition-all">
-                             <FurnitureIcon />
-                          </div>
-                          <span className="text-sm font-bold text-slate-800 group-hover:text-indigo-900">{ft.name}</span>
-                        </button>
-                      ))}
-                    </div>
-                    <div className="px-10 py-6 border-t border-slate-50 flex justify-end bg-slate-50/30">
-                      <button onClick={() => setWizardStep(null)} className={btnGhost}>Descartar</button>
+                    <div className="p-4 space-y-3">
+                      {/* Select elegante */}
+                      <select
+                        className={sel + ' w-full'}
+                        defaultValue=""
+                        onChange={e => {
+                          const ft = furnitureTypes.find(f => f.id === e.target.value)
+                          if (ft) selectType(ft)
+                        }}
+                      >
+                        <option value="" disabled>Seleccioná un tipo de mueble…</option>
+                        {furnitureTypes.map(ft => (
+                          <option key={ft.id} value={ft.id}>{ft.name}</option>
+                        ))}
+                      </select>
+                      {/* O pills compactas */}
+                      <div className="flex flex-wrap gap-2">
+                        {furnitureTypes.map(ft => (
+                          <button key={ft.id} onClick={() => selectType(ft)}
+                            className="px-4 py-2 rounded-xl border border-slate-100 bg-slate-50 hover:border-[#198e85] hover:bg-[#f0faf9] hover:text-[#0d5e59] text-xs font-semibold text-slate-600 transition-all">
+                            {ft.name}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -369,7 +490,7 @@ export default function NuevoPresupuestoPage() {
                               <label className={lbl}>Cantidad</label>
                               <div className="relative">
                                 <input type="number" min={1}
-                                  className="w-full h-11 px-4 text-sm font-black text-indigo-600 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-all text-center"
+                                  className="w-full h-11 px-4 text-sm font-black text-[#198e85] bg-white border border-slate-200 rounded-xl outline-none focus:border-[#198e85] transition-all text-center"
                                   value={cut.quantity}
                                   onChange={e => updateCut(cIdx, { quantity: parseInt(e.target.value) || 1 })} />
                               </div>
@@ -412,7 +533,7 @@ export default function NuevoPresupuestoPage() {
                              <div className="flex items-center gap-4">
                                 <span className="text-[11px] font-bold text-slate-400 tabular-nums uppercase">{((cut.width * cut.height) / 1e6 * cut.quantity).toFixed(2)} m² totales</span>
                                 <div className="h-4 w-px bg-slate-200" />
-                                <span className="text-sm font-black text-indigo-600 tabular-nums">Costo: {fmt(calcCut(cut))}</span>
+                                <span className="text-sm font-black text-[#198e85] tabular-nums">Costo: {fmt(calcCut(cut))}</span>
                              </div>
                           </div>
                         </div>
@@ -425,7 +546,7 @@ export default function NuevoPresupuestoPage() {
                         {draft.cuts.length > 0 && (
                           <div className="text-right">
                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Subtotal piezas</p>
-                            <p className="text-xl font-black text-indigo-600 tabular-nums">{fmt(draftSubtotal)}</p>
+                            <p className="text-xl font-black text-[#198e85] tabular-nums">{fmt(draftSubtotal)}</p>
                           </div>
                         )}
                         <button onClick={() => setWizardStep('hardware')} className={btnDark}>Continuar a Herrajes →</button>
@@ -563,9 +684,9 @@ export default function NuevoPresupuestoPage() {
 
                 {items.length === 0 && (
                   <button onClick={() => setWizardStep('type')}
-                    className="w-full py-24 rounded-[2rem] border-2 border-dashed border-slate-100 hover:border-indigo-400 hover:bg-slate-50/50 transition-all flex flex-col items-center gap-4 group bg-white shadow-sm">
-                    <div className="w-16 h-16 rounded-3xl bg-indigo-50 flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
-                      <svg className="w-8 h-8 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" /></svg>
+                    className="w-full py-24 rounded-[2rem] border-2 border-dashed border-slate-100 hover:border-[#198e85] hover:bg-slate-50/50 transition-all flex flex-col items-center gap-4 group bg-white shadow-sm">
+                    <div className="w-16 h-16 rounded-3xl bg-[#f0faf9] flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
+                      <svg className="w-8 h-8 text-[#198e85]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" /></svg>
                     </div>
                     <div className="text-center">
                        <p className="text-base font-bold text-slate-700">Comenzar presupuesto</p>
@@ -583,7 +704,7 @@ export default function NuevoPresupuestoPage() {
                               <FurnitureIcon />
                            </div>
                            <div>
-                              <h3 className="text-base font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">{item.name}</h3>
+                              <h3 className="text-base font-bold text-slate-800 group-hover:text-[#198e85] transition-colors">{item.name}</h3>
                               <div className="flex gap-4 mt-0.5">
                                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{item.cuts.length} piezas</span>
                                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{item.accessories.length} herrajes</span>
@@ -592,7 +713,7 @@ export default function NuevoPresupuestoPage() {
                            </div>
                         </div>
                         <div className="flex items-center gap-8">
-                          <p className="text-xl font-bold text-indigo-600 tabular-nums">{fmt(calcItem(item))}</p>
+                          <p className="text-xl font-bold text-[#198e85] tabular-nums">{fmt(calcItem(item))}</p>
                           <button onClick={() => setItems(items.filter((_, i) => i !== idx))} className="text-slate-200 hover:text-red-400 transition-colors p-2">
                              ✕
                           </button>
