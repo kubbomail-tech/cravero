@@ -23,11 +23,11 @@ const navItems = [
   },
 ]
 
-export default function Sidebar() {
+export default function Sidebar({ open, onClose }: { open?: boolean; onClose?: () => void }) {
   const pathname = usePathname()
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar${open ? ' open' : ''}`}>
       <div className="sidebar-logo">
         <Image src="/logo.png" alt="Cravero Muebles" width={200} height={43} style={{ objectFit: 'contain', width: '100%', height: 'auto', maxHeight: 48 }} unoptimized />
       </div>
@@ -44,6 +44,7 @@ export default function Sidebar() {
                   key={link.href}
                   href={link.href}
                   className={`nav-link ${isActive ? 'active' : ''}`}
+                  onClick={onClose}
                 >
                   <Icon size={18} />
                   {link.label}
@@ -58,6 +59,7 @@ export default function Sidebar() {
         <Link
           href="/perfil"
           className={`nav-link ${pathname === '/perfil' ? 'active' : ''}`}
+          onClick={onClose}
         >
           <ProfileIcon size={18} />
           Mi perfil

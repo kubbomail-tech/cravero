@@ -155,7 +155,7 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
         for (const band of cut.edgeBands) {
           checkSpace(12)
           const sl: Record<string, string> = { TOP: 'Sup', BOTTOM: 'Inf', LEFT: 'Izq', RIGHT: 'Der' }
-          page.drawText(`  └ Canto ${sl[band.side]} · ${band.materialNameSnapshot ?? ''}`, { x: 52, y: y - 8, size: 7, font, color: MUTED })
+          page.drawText(`  > Canto ${sl[band.side]} - ${band.materialNameSnapshot ?? ''}`, { x: 52, y: y - 8, size: 7, font, color: MUTED })
           page.drawText(`${parseFloat(String(band.totalLength)).toFixed(3)} ml`, { x: 375, y: y - 8, size: 7, font, color: MUTED })
           page.drawText(fmt(band.subtotalCost), { x: W - 100, y: y - 8, size: 7, font, color: MUTED })
           y -= 12

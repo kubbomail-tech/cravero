@@ -130,7 +130,7 @@ export default function LoginPage() {
           </form>
 
           <div className="form-footer">
-            Desarrollado por <span className="brand-accent">Cravero Systems</span>
+            Desarrollado por <a href="https://kubbo.com.ar" target="_blank" rel="noopener noreferrer" className="brand-accent" style={{ textDecoration: 'none' }}>kubbo</a>
           </div>
         </div>
         

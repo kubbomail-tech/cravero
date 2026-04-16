@@ -178,8 +178,8 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                   <div className="section-block-body">
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '0.75rem' }}>
                       {[
-                        { label: 'Cortes', value: `${item.cuts.length} piezas` },
-                        { label: 'Herrajes', value: `${item.accessories.length} unid.` },
+                        { label: 'Cortes', value: `${item.cuts?.length ?? 0} piezas` },
+                        { label: 'Herrajes', value: `${item.accessories?.length ?? 0} unid.` },
                         { label: 'Materiales', value: fmt(item.subtotalMaterials) },
                       ].map(stat => (
                         <div key={stat.label} style={{ background: 'var(--border-light)', padding: '0.75rem', borderRadius: 'var(--radius-sm)' }}>
