@@ -1,4 +1,4 @@
-import type { Decimal } from '@/generated/prisma/runtime/library'
+import type { Decimal } from '@prisma/client/runtime/library'
 
 export function toNumber(value: Decimal | number | null | undefined): number {
   if (value === null || value === undefined) return 0
