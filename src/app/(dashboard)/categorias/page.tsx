@@ -74,7 +74,13 @@ export default function CategoriasPage() {
       })
       if (!res.ok) {
         const d = await res.json()
-        setError(JSON.stringify(d.error?.fieldErrors ?? d.error ?? 'Error'))
+        const fieldErrors = d.error?.fieldErrors ?? {}
+        const messages: Record<string, string> = {
+          name: 'El nombre es requerido',
+          seccion: 'Seleccioná una sección (Cortes, Canto o Herrajes)',
+        }
+        const found = Object.keys(fieldErrors).map(k => messages[k] ?? fieldErrors[k]?.[0]).filter(Boolean)
+        setError(found.length ? found.join(' · ') : (d.error ?? 'Error al guardar'))
         return
       }
       setModal(null)

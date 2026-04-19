@@ -93,7 +93,15 @@ export default function MaterialesPage() {
       })
       if (!res.ok) {
         const d = await res.json()
-        setError(JSON.stringify(d.error?.fieldErrors ?? d.error ?? 'Error'))
+        const fieldErrors = d.error?.fieldErrors ?? {}
+        const messages: Record<string, string> = {
+          name: 'El nombre es requerido',
+          categoryId: 'Seleccioná una categoría',
+          unitId: 'Seleccioná una unidad',
+          unitCost: 'El costo debe ser un número válido',
+        }
+        const found = Object.keys(fieldErrors).map(k => messages[k] ?? fieldErrors[k]?.[0]).filter(Boolean)
+        setError(found.length ? found.join(' · ') : (d.error ?? 'Error al guardar'))
         return
       }
       setModal(null)

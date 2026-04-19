@@ -62,7 +62,9 @@ export default function ProveedoresPage() {
       })
       if (!res.ok) {
         const d = await res.json()
-        setError(JSON.stringify(d.error?.fieldErrors ?? d.error ?? 'Error'))
+        const fieldErrors = d.error?.fieldErrors ?? {}
+        const found = Object.values(fieldErrors).flat().filter(Boolean) as string[]
+        setError(found.length ? found.join(' · ') : (d.error ?? 'Error al guardar'))
         return
       }
       setModal(null)
