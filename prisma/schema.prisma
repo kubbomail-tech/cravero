@@ -28,6 +28,12 @@ enum PriceUpdateScope {
   CATEGORY
 }
 
+enum MaterialSection {
+  CORTES
+  CANTO
+  HERRAJES
+}
+
 enum EdgeSide {
   TOP
   BOTTOM
@@ -85,12 +91,26 @@ model FurnitureType {
   @@map("furniture_types")
 }
 
-model MaterialCategory {
+model Proveedor {
   id          String   @id @default(cuid())
   name        String   @unique
   description String?
+  isActive    Boolean  @default(true) @map("is_active")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
+
+  materials Material[]
+
+  @@map("proveedores")
+}
+
+model MaterialCategory {
+  id          String          @id @default(cuid())
+  name        String          @unique
+  description String?
+  seccion     MaterialSection?
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
 
   materials          Material[]
   priceUpdateBatches PriceUpdateBatch[]
@@ -115,6 +135,7 @@ model Material {
   name         String
   internalCode String?  @map("internal_code")
   categoryId   String   @map("category_id")
+  proveedorId  String?  @map("proveedor_id")
   unitId       String   @map("unit_id")
   unitCost     Decimal  @default(0) @map("unit_cost") @db.Decimal(12, 2)
   stock        Decimal? @db.Decimal(12, 3)
@@ -124,6 +145,7 @@ model Material {
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   category               MaterialCategory         @relation(fields: [categoryId], references: [id])
+  proveedor              Proveedor?               @relation(fields: [proveedorId], references: [id])
   unit                   Unit                     @relation(fields: [unitId], references: [id])
   priceUpdateBatchItems  PriceUpdateBatchItem[]
   quoteItemCuts          QuoteItemCut[]

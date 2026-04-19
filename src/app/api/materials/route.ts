@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
   const materials = await prisma.material.findMany({
     where,
     orderBy: { name: 'asc' },
-    include: { category: true, unit: true },
+    include: { category: true, unit: true, proveedor: true },
   })
 
   return NextResponse.json(materials)

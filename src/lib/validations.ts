@@ -17,10 +17,23 @@ export const clientSchema = z.object({
   isActive: z.boolean().default(true),
 })
 
+export const proveedorSchema = z.object({
+  name: z.string().min(1, 'El nombre es requerido'),
+  description: z.string().optional(),
+  isActive: z.boolean().default(true),
+})
+
+export const materialCategorySchema = z.object({
+  name: z.string().min(1, 'El nombre es requerido'),
+  description: z.string().optional(),
+  seccion: z.enum(['CORTES', 'CANTO', 'HERRAJES'], { required_error: 'La sección es requerida' }),
+})
+
 export const materialSchema = z.object({
   name: z.string().min(1, 'El nombre es requerido'),
   internalCode: z.string().optional(),
   categoryId: z.string().min(1, 'La categoría es requerida'),
+  proveedorId: z.string().optional(),
   unitId: z.string().min(1, 'La unidad es requerida'),
   unitCost: z.coerce.number().min(0, 'El costo debe ser positivo'),
   stock: z.coerce.number().optional(),
@@ -85,6 +98,8 @@ export const quoteSchema = z.object({
   items: z.array(quoteItemSchema).optional().default([]),
 })
 
+export type ProveedorInput = z.infer<typeof proveedorSchema>
+export type MaterialCategoryInput = z.infer<typeof materialCategorySchema>
 export type LoginInput = z.infer<typeof loginSchema>
 export type ClientInput = z.infer<typeof clientSchema>
 export type MaterialInput = z.infer<typeof materialSchema>

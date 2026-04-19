@@ -10,7 +10,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   const { id } = await ctx.params
   const material = await prisma.material.findUnique({
     where: { id },
-    include: { category: true, unit: true },
+    include: { category: true, unit: true, proveedor: true },
   })
   if (!material) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   return NextResponse.json(material)

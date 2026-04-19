@@ -3,14 +3,16 @@
 import { useState, useEffect, useCallback } from 'react'
 import { toNumber } from '@/lib/calculations'
 
-type Category = { id: string; name: string }
+type Category = { id: string; name: string; seccion?: string | null }
 type Unit = { id: string; code: string; name: string }
+type Proveedor = { id: string; name: string }
 type Material = {
   id: string
   name: string
   internalCode?: string
   category: Category
   unit: Unit
+  proveedor?: Proveedor | null
   unitCost: number
   stock?: number
   isActive: boolean
@@ -21,6 +23,7 @@ export default function MaterialesPage() {
   const [materials, setMaterials] = useState<Material[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [units, setUnits] = useState<Unit[]>([])
+  const [proveedores, setProveedores] = useState<Proveedor[]>([])
   const [search, setSearch] = useState('')
   const [filterCategory, setFilterCategory] = useState('')
   const [showInactive, setShowInactive] = useState(false)
@@ -37,6 +40,7 @@ export default function MaterialesPage() {
     fetch('/api/meta').then(r => r.json()).then(d => {
       setCategories(d.categories)
       setUnits(d.units)
+      setProveedores(d.proveedores ?? [])
     })
   }, [])
 
@@ -64,10 +68,11 @@ export default function MaterialesPage() {
 
   function openEdit(m: Material) {
     setSelected(m)
-    setForm({ 
-      ...m, 
-      categoryId: m.category.id, 
-      unitId: m.unit.id, 
+    setForm({
+      ...m,
+      categoryId: m.category.id,
+      unitId: m.unit.id,
+      proveedorId: m.proveedor?.id ?? '',
       unitCost: toNumber(m.unitCost)
     })
     setError('')
@@ -184,6 +189,7 @@ export default function MaterialesPage() {
               <th>Material</th>
               <th>Código</th>
               <th>Categoría</th>
+              <th>Proveedor</th>
               <th>Unidad</th>
               <th>Costo unitario</th>
               <th>Acciones</th>
@@ -191,9 +197,9 @@ export default function MaterialesPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Cargando...</td></tr>
+              <tr><td colSpan={7} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Cargando...</td></tr>
             ) : materials.length === 0 ? (
-              <tr><td colSpan={6}>
+              <tr><td colSpan={7}>
                 <div className="empty-state">
                   <p>No se encontraron materiales</p>
                   <button className="btn btn-secondary btn-sm" onClick={openCreate}>Agregar material</button>
@@ -207,6 +213,7 @@ export default function MaterialesPage() {
                 </td>
                 <td><span className="badge badge-gray">{m.internalCode ?? '—'}</span></td>
                 <td style={{ color: 'var(--text-muted)' }}>{m.category.name}</td>
+                <td style={{ color: 'var(--text-muted)' }}>{m.proveedor?.name ?? <span style={{ opacity: 0.45 }}>—</span>}</td>
                 <td><span className="badge badge-teal">{m.unit.code}</span></td>
                 <td style={{ fontWeight: 600, color: 'var(--primary)' }}>{fmt(toNumber(m.unitCost))}</td>
                 <td>
@@ -257,6 +264,13 @@ export default function MaterialesPage() {
                   <select className="form-select" value={form.categoryId ?? ''} onChange={e => setForm({...form, categoryId: e.target.value})}>
                     <option value="">Seleccionar...</option>
                     {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Proveedor / Marca</label>
+                  <select className="form-select" value={form.proveedorId ?? ''} onChange={e => setForm({...form, proveedorId: e.target.value || undefined})}>
+                    <option value="">Sin proveedor</option>
+                    {proveedores.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
                 </div>
                 <div className="form-group">
