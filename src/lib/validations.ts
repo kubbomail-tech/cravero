@@ -26,7 +26,7 @@ export const proveedorSchema = z.object({
 export const materialCategorySchema = z.object({
   name: z.string().min(1, 'El nombre es requerido'),
   description: z.string().optional(),
-  seccion: z.enum(['CORTES', 'CANTO', 'HERRAJES'], { required_error: 'La sección es requerida' }),
+  seccion: z.enum(['CORTES', 'CANTO', 'HERRAJES'], { error: 'La sección es requerida' }),
 })
 
 export const materialSchema = z.object({
