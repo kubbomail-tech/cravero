@@ -90,8 +90,8 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
         body: JSON.stringify({ status: newStatus }),
       })
       if (res.ok) {
-        const updated = await res.json()
-        setQuote(updated)
+        const qRes = await fetch(`/api/quotes/${id}`)
+        setQuote(await qRes.json())
       }
     } catch (err) {
       console.error(err)

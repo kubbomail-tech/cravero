@@ -1,7 +1,7 @@
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
-import { toNumber, formatCurrency } from '@/lib/calculations'
+import { toNumber } from '@/lib/calculations'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
 import fs from 'fs'
 import path from 'path'
@@ -28,6 +28,7 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
           furnitureType: true,
           cuts: { include: { edgeBands: true } },
           accessories: true,
+          additionals: true,
         },
         orderBy: { createdAt: 'asc' },
       },
@@ -152,30 +153,35 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
         page.drawText(fmt(cut.subtotalCost), { x: W - 100, y: y - 8, size: 7.5, font: fontBold, color: TEXT })
         y -= 13
 
-        for (const band of cut.edgeBands) {
-          checkSpace(12)
-          const sl: Record<string, string> = { TOP: 'Sup', BOTTOM: 'Inf', LEFT: 'Izq', RIGHT: 'Der' }
-          page.drawText(`  > Canto ${sl[band.side]} - ${band.materialNameSnapshot ?? ''}`, { x: 52, y: y - 8, size: 7, font, color: MUTED })
-          page.drawText(`${parseFloat(String(band.totalLength)).toFixed(3)} ml`, { x: 375, y: y - 8, size: 7, font, color: MUTED })
-          page.drawText(fmt(band.subtotalCost), { x: W - 100, y: y - 8, size: 7, font, color: MUTED })
-          y -= 12
-        }
       }
     }
 
-    // Accessories
+    // Accessories — single summary line
     if (item.accessories.length > 0) {
       checkSpace(20)
       y -= 4
       page.drawText('Herrajes y accesorios:', { x: 44, y: y - 10, size: 7.5, font: fontBold, color: MUTED })
+      const totalAcc = item.accessories.reduce((s: number, a: { subtotalCost: any }) => s + toNumber(a.subtotalCost), 0)
+      page.drawText(fmt(totalAcc), { x: W - 100, y: y - 10, size: 7.5, font: fontBold, color: TEXT })
+      y -= 18
+    }
+
+    // Adicionales
+    const additionals = (item as any).additionals ?? []
+    if (additionals.length > 0) {
+      checkSpace(20)
+      y -= 4
+      page.drawText('Adicionales:', { x: 44, y: y - 10, size: 7.5, font: fontBold, color: MUTED })
       y -= 18
 
-      for (const acc of item.accessories) {
+      for (const add of additionals) {
         checkSpace(12)
-        const label = `${acc.materialNameSnapshot ?? ''} ${acc.description ? '· ' + acc.description : ''}`
+        const label = `${add.materialNameSnapshot ?? ''} ${add.description ? '· ' + add.description : ''}`
         page.drawText(label.substring(0, 50), { x: 48, y: y - 8, size: 7.5, font, color: TEXT })
-        page.drawText(`×${acc.quantity}`, { x: 350, y: y - 8, size: 7.5, font, color: TEXT })
-        page.drawText(fmt(acc.subtotalCost), { x: W - 100, y: y - 8, size: 7.5, font: fontBold, color: TEXT })
+        page.drawText(`×${add.quantity}`, { x: 350, y: y - 8, size: 7.5, font, color: TEXT })
+        if (add.showPrice) {
+          page.drawText(fmt(add.subtotalCost), { x: W - 100, y: y - 8, size: 7.5, font: fontBold, color: TEXT })
+        }
         y -= 13
       }
     }
@@ -186,7 +192,8 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
   // Totals box
   checkSpace(140)
   y -= 16
-  const totalsH = 112
+  const hasDiscount = toNumber(quote.discountAmount) > 0
+  const totalsH = hasDiscount ? 136 : 123
   page.drawRectangle({ x: W - 220, y: y - totalsH, width: 184, height: totalsH, color: DARK })
 
   let ty = y - 16
@@ -198,11 +205,12 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
 
   totalRow('Subtotal materiales:', fmt(quote.subtotalMaterials))
   totalRow(`Mano de obra (${toNumber(quote.laborPercentage)}%):`, fmt(quote.subtotalLabor))
-  if (toNumber(quote.discountAmount) > 0) totalRow('Descuento:', `-${fmt(quote.discountAmount)}`)
+  if (hasDiscount) totalRow('Descuento:', `-${fmt(quote.discountAmount)}`)
   totalRow('Subtotal:', fmt(quote.subtotalBeforeTax))
   totalRow(`IVA (${toNumber(quote.vatPercentage)}%):`, fmt(quote.vatAmount))
-  ty -= 4
+  ty -= 14
   page.drawLine({ start: { x: W - 214, y: ty + 6 }, end: { x: W - 44, y: ty + 6 }, color: rgb(0.4,0.7,0.68), thickness: 0.5 })
+  ty -= 6
   totalRow('TOTAL:', fmt(quote.totalAmount), true)
 
   // Payment terms

@@ -7,51 +7,53 @@ export const loginSchema = z.object({
 
 export const clientSchema = z.object({
   fullName: z.string().min(1, 'El nombre es requerido'),
-  businessName: z.string().optional(),
-  phone: z.string().optional(),
-  email: z.string().email('Email inválido').optional().or(z.literal('')),
-  address: z.string().optional(),
-  city: z.string().optional(),
-  province: z.string().optional(),
-  notes: z.string().optional(),
+  businessName: z.string().nullish(),
+  phone: z.string().nullish(),
+  email: z.string().email('Email inválido').nullish().or(z.literal('')),
+  address: z.string().nullish(),
+  city: z.string().nullish(),
+  province: z.string().nullish(),
+  notes: z.string().nullish(),
   isActive: z.boolean().default(true),
 })
 
 export const proveedorSchema = z.object({
   name: z.string().min(1, 'El nombre es requerido'),
-  description: z.string().optional(),
+  description: z.string().nullish(),
   isActive: z.boolean().default(true),
 })
 
 export const materialCategorySchema = z.object({
   name: z.string().min(1, 'El nombre es requerido'),
-  description: z.string().optional(),
-  seccion: z.enum(['CORTES', 'CANTO', 'HERRAJES'], { error: 'La sección es requerida' }),
+  description: z.string().nullish(),
+  seccion: z.enum(['CORTES', 'CANTO', 'HERRAJES', 'ADICIONALES'], { error: 'La sección es requerida' }),
 })
 
 export const materialSchema = z.object({
   name: z.string().min(1, 'El nombre es requerido'),
-  internalCode: z.string().optional(),
+  internalCode: z.string().nullish(),
   categoryId: z.string().min(1, 'La categoría es requerida'),
-  proveedorId: z.string().optional(),
+  proveedorId: z.string().nullish(),
   unitId: z.string().min(1, 'La unidad es requerida'),
   unitCost: z.coerce.number().min(0, 'El costo debe ser positivo'),
-  stock: z.coerce.number().optional(),
-  notes: z.string().optional(),
+  stock: z.coerce.number().nullish(),
+  notes: z.string().nullish(),
   isActive: z.boolean().default(true),
 })
 
 export const furnitureTypeSchema = z.object({
   name: z.string().min(1, 'El nombre es requerido'),
-  description: z.string().optional(),
+  description: z.string().nullish(),
   isActive: z.boolean().default(true),
 })
 
 export const bulkPriceUpdateSchema = z.object({
   name: z.string().min(1, 'El nombre del lote es requerido'),
   percentage: z.coerce.number().min(0.01, 'El porcentaje debe ser mayor a 0'),
-  scopeType: z.enum(['ALL', 'CATEGORY']),
+  scopeType: z.enum(['ALL', 'CATEGORY', 'PROVEEDOR', 'CUSTOM']),
   categoryId: z.string().optional(),
+  proveedorId: z.string().optional(),
+  materialIds: z.array(z.string()).optional(),
 })
 
 export const quoteItemEdgeBandSchema = z.object({
@@ -77,6 +79,13 @@ export const quoteItemAccessorySchema = z.object({
   quantity: z.coerce.number().min(1).default(1),
 })
 
+export const quoteItemAdditionalSchema = z.object({
+  materialId: z.string().optional(),
+  description: z.string().optional(),
+  quantity: z.coerce.number().min(1).default(1),
+  showPrice: z.boolean().default(true),
+})
+
 export const quoteItemSchema = z.object({
   furnitureTypeId: z.string().optional(),
   description: z.string().optional(),
@@ -84,6 +93,7 @@ export const quoteItemSchema = z.object({
   notes: z.string().optional(),
   cuts: z.array(quoteItemCutSchema).default([]),
   accessories: z.array(quoteItemAccessorySchema).default([]),
+  additionals: z.array(quoteItemAdditionalSchema).default([]),
 })
 
 export const quoteSchema = z.object({
@@ -110,3 +120,4 @@ export type QuoteItemInput = z.infer<typeof quoteItemSchema>
 export type QuoteItemCutInput = z.infer<typeof quoteItemCutSchema>
 export type QuoteItemEdgeBandInput = z.infer<typeof quoteItemEdgeBandSchema>
 export type QuoteItemAccessoryInput = z.infer<typeof quoteItemAccessorySchema>
+export type QuoteItemAdditionalInput = z.infer<typeof quoteItemAdditionalSchema>

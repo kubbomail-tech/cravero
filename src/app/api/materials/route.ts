@@ -10,6 +10,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const search = searchParams.get('search') ?? ''
   const categoryId = searchParams.get('categoryId')
+  const proveedorId = searchParams.get('proveedorId')
   const isActive = searchParams.get('isActive')
 
   const where: any = {}
@@ -20,6 +21,7 @@ export async function GET(req: NextRequest) {
     ]
   }
   if (categoryId) where.categoryId = categoryId
+  if (proveedorId) where.proveedorId = proveedorId
   if (isActive !== null && isActive !== '') where.isActive = isActive === 'true'
 
   const materials = await prisma.material.findMany({

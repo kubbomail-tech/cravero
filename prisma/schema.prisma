@@ -26,12 +26,15 @@ enum QuoteStatus {
 enum PriceUpdateScope {
   ALL
   CATEGORY
+  PROVEEDOR
+  CUSTOM
 }
 
 enum MaterialSection {
   CORTES
   CANTO
   HERRAJES
+  ADICIONALES
 }
 
 enum EdgeSide {
@@ -99,7 +102,8 @@ model Proveedor {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  materials Material[]
+  materials          Material[]
+  priceUpdateBatches PriceUpdateBatch[]
 
   @@map("proveedores")
 }
@@ -151,22 +155,25 @@ model Material {
   quoteItemCuts          QuoteItemCut[]
   quoteItemEdgeBands     QuoteItemEdgeBand[]
   quoteItemAccessories   QuoteItemAccessory[]
+  quoteItemAdditionals   QuoteItemAdditional[]
 
   @@map("materials")
 }
 
 model PriceUpdateBatch {
-  id         String           @id @default(cuid())
-  name       String
-  percentage Decimal          @db.Decimal(8, 4)
-  scopeType  PriceUpdateScope @map("scope_type")
-  categoryId String?          @map("category_id")
-  createdBy  String           @map("created_by")
-  createdAt  DateTime         @default(now()) @map("created_at")
+  id          String           @id @default(cuid())
+  name        String
+  percentage  Decimal          @db.Decimal(8, 4)
+  scopeType   PriceUpdateScope @map("scope_type")
+  categoryId  String?          @map("category_id")
+  proveedorId String?          @map("proveedor_id")
+  createdBy   String           @map("created_by")
+  createdAt   DateTime         @default(now()) @map("created_at")
 
-  category MaterialCategory?      @relation(fields: [categoryId], references: [id])
-  creator  User                   @relation(fields: [createdBy], references: [id])
-  items    PriceUpdateBatchItem[]
+  category   MaterialCategory?      @relation(fields: [categoryId], references: [id])
+  proveedor  Proveedor?             @relation(fields: [proveedorId], references: [id])
+  creator    User                   @relation(fields: [createdBy], references: [id])
+  items      PriceUpdateBatchItem[]
 
   @@map("price_update_batches")
 }
@@ -221,17 +228,19 @@ model QuoteItem {
   description     String?
   quantity        Int      @default(1)
   notes           String?
-  subtotalMaterials Decimal @default(0) @map("subtotal_materials") @db.Decimal(12, 2)
-  subtotalHardware  Decimal @default(0) @map("subtotal_hardware") @db.Decimal(12, 2)
-  subtotalLabor     Decimal @default(0) @map("subtotal_labor") @db.Decimal(12, 2)
-  subtotalTotal     Decimal @default(0) @map("subtotal_total") @db.Decimal(12, 2)
+  subtotalMaterials    Decimal @default(0) @map("subtotal_materials") @db.Decimal(12, 2)
+  subtotalHardware     Decimal @default(0) @map("subtotal_hardware") @db.Decimal(12, 2)
+  subtotalAdditionals  Decimal @default(0) @map("subtotal_additionals") @db.Decimal(12, 2)
+  subtotalLabor        Decimal @default(0) @map("subtotal_labor") @db.Decimal(12, 2)
+  subtotalTotal        Decimal @default(0) @map("subtotal_total") @db.Decimal(12, 2)
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
-  quote         Quote              @relation(fields: [quoteId], references: [id], onDelete: Cascade)
-  furnitureType FurnitureType?     @relation(fields: [furnitureTypeId], references: [id])
+  quote         Quote                @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  furnitureType FurnitureType?       @relation(fields: [furnitureTypeId], references: [id])
   cuts          QuoteItemCut[]
   accessories   QuoteItemAccessory[]
+  additionals   QuoteItemAdditional[]
 
   @@map("quote_items")
 }
@@ -296,6 +305,25 @@ model QuoteItemAccessory {
   material  Material? @relation(fields: [materialId], references: [id])
 
   @@map("quote_item_accessories")
+}
+
+model QuoteItemAdditional {
+  id                       String   @id @default(cuid())
+  quoteItemId              String   @map("quote_item_id")
+  materialId               String?  @map("material_id")
+  materialNameSnapshot     String?  @map("material_name_snapshot")
+  materialUnitCostSnapshot Decimal? @map("material_unit_cost_snapshot") @db.Decimal(12, 2)
+  description              String?
+  quantity                 Int      @default(1)
+  subtotalCost             Decimal  @default(0) @map("subtotal_cost") @db.Decimal(12, 2)
+  showPrice                Boolean  @default(true) @map("show_price")
+  createdAt                DateTime @default(now()) @map("created_at")
+  updatedAt                DateTime @updatedAt @map("updated_at")
+
+  quoteItem QuoteItem @relation(fields: [quoteItemId], references: [id], onDelete: Cascade)
+  material  Material? @relation(fields: [materialId], references: [id])
+
+  @@map("quote_item_additionals")
 }
 
 model QuotePdf {

@@ -20,6 +20,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
             include: { edgeBands: true },
           },
           accessories: true,
+          additionals: true,
         },
         orderBy: { createdAt: 'asc' },
       },

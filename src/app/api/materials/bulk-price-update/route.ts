@@ -2,6 +2,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
 import { bulkPriceUpdateSchema } from '@/lib/validations'
+import { PriceUpdateScope } from '@prisma/client'
 
 export async function POST(req: NextRequest) {
   const session = await auth()
@@ -13,13 +14,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
   }
 
-  const { name, percentage, scopeType, categoryId } = parsed.data
+  const { name, percentage, scopeType, categoryId, proveedorId, materialIds } = parsed.data
 
   // Get materials to update
   const where: any = { isActive: true }
-  if (scopeType === 'CATEGORY' && categoryId) {
-    where.categoryId = categoryId
-  }
+  if (scopeType === 'CATEGORY' && categoryId) where.categoryId = categoryId
+  if (scopeType === 'PROVEEDOR' && proveedorId) where.proveedorId = proveedorId
+  if (scopeType === 'CUSTOM' && materialIds?.length) where.id = { in: materialIds }
 
   const materials = await prisma.material.findMany({ where })
 
@@ -29,8 +30,9 @@ export async function POST(req: NextRequest) {
       data: {
         name,
         percentage,
-        scopeType,
+        scopeType: scopeType as PriceUpdateScope,
         categoryId: scopeType === 'CATEGORY' ? categoryId : null,
+        proveedorId: scopeType === 'PROVEEDOR' ? proveedorId : null,
         createdBy: (session.user as any).id,
       },
     })

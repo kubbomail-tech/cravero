@@ -26,12 +26,15 @@ export default function MaterialesPage() {
   const [proveedores, setProveedores] = useState<Proveedor[]>([])
   const [search, setSearch] = useState('')
   const [filterCategory, setFilterCategory] = useState('')
+  const [filterProveedor, setFilterProveedor] = useState('')
   const [showInactive, setShowInactive] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [modal, setModal] = useState<'create' | 'edit' | 'bulk' | 'confirm' | null>(null)
+  const [modal, setModal] = useState<'create' | 'edit' | 'bulk' | 'confirm' | 'selection' | null>(null)
   const [selected, setSelected] = useState<Material | null>(null)
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set())
+  const [selectionForm, setSelectionForm] = useState({ name: '', percentage: '' })
   const [form, setForm] = useState<any>({ isActive: true })
-  const [bulkForm, setBulkForm] = useState({ name: '', percentage: '', scopeType: 'ALL', categoryId: '' })
+  const [bulkForm, setBulkForm] = useState({ name: '', percentage: '', scopeType: 'ALL', categoryId: '', proveedorId: '' })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [bulkResult, setBulkResult] = useState('')
@@ -49,11 +52,12 @@ export default function MaterialesPage() {
     let url = `/api/materials?search=${encodeURIComponent(search)}`
     if (!showInactive) url += '&isActive=true'
     if (filterCategory) url += `&categoryId=${filterCategory}`
+    if (filterProveedor) url += `&proveedorId=${filterProveedor}`
     const res = await fetch(url)
     const data = await res.json()
     setMaterials(data)
     setLoading(false)
-  }, [search, filterCategory, showInactive])
+  }, [search, filterCategory, filterProveedor, showInactive])
 
   useEffect(() => {
     const t = setTimeout(fetchMaterials, 300)
@@ -72,7 +76,7 @@ export default function MaterialesPage() {
       ...m,
       categoryId: m.category.id,
       unitId: m.unit.id,
-      proveedorId: m.proveedor?.id ?? '',
+      proveedorId: m.proveedor?.id ?? null,
       unitCost: toNumber(m.unitCost)
     })
     setError('')
@@ -156,6 +160,47 @@ export default function MaterialesPage() {
     fetchMaterials()
   }
 
+  function toggleCheck(id: string) {
+    setCheckedIds(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  function toggleAll() {
+    const activeIds = materials.filter(m => m.isActive).map(m => m.id)
+    setCheckedIds(prev => prev.size === activeIds.length ? new Set() : new Set(activeIds))
+  }
+
+  async function handleSelectionUpdate() {
+    setSaving(true)
+    setError('')
+    try {
+      const res = await fetch('/api/materials/bulk-price-update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: selectionForm.name,
+          percentage: selectionForm.percentage,
+          scopeType: 'CUSTOM',
+          materialIds: Array.from(checkedIds),
+        }),
+      })
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}))
+        setError(d.error ?? 'Error al actualizar precios')
+        return
+      }
+      setModal(null)
+      setCheckedIds(new Set())
+      setSelectionForm({ name: '', percentage: '' })
+      fetchMaterials()
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const fmt = (n: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(n)
 
   return (
@@ -166,7 +211,7 @@ export default function MaterialesPage() {
           <p className="page-subtitle">Insumos y costos del sistema</p>
         </div>
         <div className="flex gap-2">
-          <button className="btn btn-secondary" onClick={() => { setBulkResult(''); setBulkForm({ name: '', percentage: '', scopeType: 'ALL', categoryId: '' }); setModal('bulk') }}>
+          <button className="btn btn-secondary" onClick={() => { setBulkResult(''); setBulkForm({ name: '', percentage: '', scopeType: 'ALL', categoryId: '', proveedorId: '' }); setModal('bulk') }}>
             Actualización masiva
           </button>
           <button className="btn btn-primary" onClick={openCreate}>
@@ -175,16 +220,20 @@ export default function MaterialesPage() {
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.25rem', flexWrap: 'wrap', alignItems: 'center' }}>
-        <div className="search-bar" style={{ flex: 1, minWidth: 220 }}>
+      <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.25rem', alignItems: 'center' }}>
+        <div className="search-bar" style={{ flex: 1 }}>
           <SearchIcon />
           <input placeholder="Buscar por nombre o código..." value={search} onChange={e => setSearch(e.target.value)} />
         </div>
-        <select className="form-select" style={{ width: 200 }} value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
-          <option value="">Todas las categorías</option>
+        <select className="form-select" style={{ width: 160, flexShrink: 0 }} value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
+          <option value="">Categoría</option>
           {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', color: 'var(--text-muted)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+        <select className="form-select" style={{ width: 160, flexShrink: 0 }} value={filterProveedor} onChange={e => setFilterProveedor(e.target.value)}>
+          <option value="">Proveedor</option>
+          {proveedores.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </select>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', color: 'var(--text-muted)', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
           <input type="checkbox" checked={showInactive} onChange={e => setShowInactive(e.target.checked)} />
           Ver inactivos
         </label>
@@ -194,6 +243,14 @@ export default function MaterialesPage() {
         <table>
           <thead>
             <tr>
+              <th style={{ width: 36 }}>
+                <input
+                  type="checkbox"
+                  checked={materials.filter(m => m.isActive).length > 0 && checkedIds.size === materials.filter(m => m.isActive).length}
+                  onChange={toggleAll}
+                  title="Seleccionar todos"
+                />
+              </th>
               <th>Material</th>
               <th>Código</th>
               <th>Categoría</th>
@@ -205,16 +262,21 @@ export default function MaterialesPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={7} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Cargando...</td></tr>
+              <tr><td colSpan={8} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Cargando...</td></tr>
             ) : materials.length === 0 ? (
-              <tr><td colSpan={7}>
+              <tr><td colSpan={8}>
                 <div className="empty-state">
                   <p>No se encontraron materiales</p>
                   <button className="btn btn-secondary btn-sm" onClick={openCreate}>Agregar material</button>
                 </div>
               </td></tr>
             ) : materials.map(m => (
-              <tr key={m.id} style={!m.isActive ? { opacity: 0.45 } : undefined}>
+              <tr key={m.id} style={!m.isActive ? { opacity: 0.45 } : checkedIds.has(m.id) ? { background: 'rgba(25,142,133,0.05)' } : undefined}>
+                <td>
+                  {m.isActive && (
+                    <input type="checkbox" checked={checkedIds.has(m.id)} onChange={() => toggleCheck(m.id)} />
+                  )}
+                </td>
                 <td style={{ fontWeight: 500 }}>
                   {m.name}
                   {!m.isActive && <span className="badge badge-gray" style={{ marginLeft: '0.5rem' }}>Inactivo</span>}
@@ -271,12 +333,12 @@ export default function MaterialesPage() {
                   <label className="form-label">Categoría *</label>
                   <select className="form-select" value={form.categoryId ?? ''} onChange={e => setForm({...form, categoryId: e.target.value})}>
                     <option value="">Seleccionar...</option>
-                    {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    {categories.map(c => <option key={c.id} value={c.id}>{c.name}{c.seccion ? ` (${c.seccion.charAt(0) + c.seccion.slice(1).toLowerCase()})` : ''}</option>)}
                   </select>
                 </div>
                 <div className="form-group">
                   <label className="form-label">Proveedor / Marca</label>
-                  <select className="form-select" value={form.proveedorId ?? ''} onChange={e => setForm({...form, proveedorId: e.target.value || undefined})}>
+                  <select className="form-select" value={form.proveedorId ?? ''} onChange={e => setForm({...form, proveedorId: e.target.value || null})}>
                     <option value="">Sin proveedor</option>
                     {proveedores.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
@@ -352,9 +414,10 @@ export default function MaterialesPage() {
               </div>
               <div className="form-group">
                 <label className="form-label">Alcance</label>
-                <select className="form-select" value={bulkForm.scopeType} onChange={e => setBulkForm({...bulkForm, scopeType: e.target.value})}>
+                <select className="form-select" value={bulkForm.scopeType} onChange={e => setBulkForm({...bulkForm, scopeType: e.target.value, categoryId: '', proveedorId: ''})}>
                   <option value="ALL">Todos los materiales</option>
                   <option value="CATEGORY">Por categoría</option>
+                  <option value="PROVEEDOR">Por proveedor</option>
                 </select>
               </div>
               {bulkForm.scopeType === 'CATEGORY' && (
@@ -366,6 +429,15 @@ export default function MaterialesPage() {
                   </select>
                 </div>
               )}
+              {bulkForm.scopeType === 'PROVEEDOR' && (
+                <div className="form-group">
+                  <label className="form-label">Proveedor</label>
+                  <select className="form-select" value={bulkForm.proveedorId} onChange={e => setBulkForm({...bulkForm, proveedorId: e.target.value})}>
+                    <option value="">Seleccionar...</option>
+                    {proveedores.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                </div>
+              )}
               <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                 Esta acción actualizará los precios vigentes. Los presupuestos ya generados no se verán afectados.
               </p>
@@ -373,6 +445,68 @@ export default function MaterialesPage() {
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setModal(null)}>Cancelar</button>
               <button className="btn btn-primary" onClick={handleBulkUpdate} disabled={saving || !!bulkResult}>
+                {saving ? 'Actualizando...' : 'Aplicar aumento'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Barra flotante de selección */}
+      {checkedIds.size > 0 && (
+        <div style={{
+          position: 'fixed', bottom: '1.5rem', left: '50%', transform: 'translateX(-50%)',
+          background: 'var(--text)', color: 'white', borderRadius: 'var(--radius)',
+          padding: '0.75rem 1.25rem', display: 'flex', alignItems: 'center', gap: '1rem',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.2)', zIndex: 100, whiteSpace: 'nowrap',
+        }}>
+          <span style={{ fontSize: '0.875rem' }}>
+            <strong>{checkedIds.size}</strong> material{checkedIds.size !== 1 ? 'es' : ''} seleccionado{checkedIds.size !== 1 ? 's' : ''}
+          </span>
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={() => { setSelectionForm({ name: '', percentage: '' }); setError(''); setModal('selection') }}
+          >
+            Actualizar precios
+          </button>
+          <button
+            className="btn btn-ghost btn-sm"
+            style={{ color: 'rgba(255,255,255,0.6)' }}
+            onClick={() => setCheckedIds(new Set())}
+          >
+            Cancelar
+          </button>
+        </div>
+      )}
+
+      {/* Modal actualización por selección */}
+      {modal === 'selection' && (
+        <div className="modal-overlay" onClick={() => setModal(null)}>
+          <div className="modal" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Actualizar precios seleccionados</h3>
+              <button className="btn btn-ghost btn-sm" onClick={() => setModal(null)}>×</button>
+            </div>
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {error && <div className="alert alert-error">{error}</div>}
+              <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', margin: 0 }}>
+                Se actualizarán <strong style={{ color: 'var(--text)' }}>{checkedIds.size} material{checkedIds.size !== 1 ? 'es' : ''}</strong> seleccionados.
+              </p>
+              <div className="form-group">
+                <label className="form-label">Nombre del lote *</label>
+                <input className="form-input" placeholder="Ej: Aumento Placacentro Abril 2026" value={selectionForm.name} onChange={e => setSelectionForm({ ...selectionForm, name: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Porcentaje de aumento (%) *</label>
+                <input className="form-input" type="number" step="0.1" placeholder="Ej: 10" value={selectionForm.percentage} onChange={e => setSelectionForm({ ...selectionForm, percentage: e.target.value })} />
+              </div>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                Los presupuestos ya generados no se verán afectados.
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setModal(null)}>Cancelar</button>
+              <button className="btn btn-primary" onClick={handleSelectionUpdate} disabled={saving || !selectionForm.name || !selectionForm.percentage}>
                 {saving ? 'Actualizando...' : 'Aplicar aumento'}
               </button>
             </div>

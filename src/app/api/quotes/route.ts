@@ -56,6 +56,7 @@ export async function POST(req: NextRequest) {
         cut.edgeBands?.forEach(eb => { if (eb.materialId) materialIds.add(eb.materialId) })
       })
       item.accessories?.forEach(acc => { if (acc.materialId) materialIds.add(acc.materialId) })
+      item.additionals?.forEach(add => { if (add.materialId) materialIds.add(add.materialId) })
     })
 
     const materials = await tx.material.findMany({
@@ -136,7 +137,26 @@ export async function POST(req: NextRequest) {
         }
       })
 
-      quoteSubtotalMaterials += (itemSubtotalMaterials + itemSubtotalHardware)
+      let itemSubtotalAdditionals = 0
+      const addToCreate = (item.additionals || []).map(add => {
+        const mat = add.materialId ? matMap.get(add.materialId) : null
+        const unitCost = mat ? toNumber(mat.unitCost) : 0
+        const subtotalCost = unitCost * add.quantity
+
+        itemSubtotalAdditionals += subtotalCost
+
+        return {
+          materialId: add.materialId,
+          materialNameSnapshot: mat?.name,
+          materialUnitCostSnapshot: unitCost,
+          description: add.description,
+          quantity: add.quantity,
+          subtotalCost,
+          showPrice: add.showPrice ?? true,
+        }
+      })
+
+      quoteSubtotalMaterials += (itemSubtotalMaterials + itemSubtotalHardware + itemSubtotalAdditionals)
 
       return {
         furnitureTypeId: item.furnitureTypeId,
@@ -144,9 +164,11 @@ export async function POST(req: NextRequest) {
         quantity: item.quantity || 1,
         subtotalMaterials: itemSubtotalMaterials,
         subtotalHardware: itemSubtotalHardware,
-        subtotalTotal: itemSubtotalMaterials + itemSubtotalHardware,
+        subtotalAdditionals: itemSubtotalAdditionals,
+        subtotalTotal: itemSubtotalMaterials + itemSubtotalHardware + itemSubtotalAdditionals,
         cuts: { create: cutsToCreate },
-        accessories: { create: accToCreate }
+        accessories: { create: accToCreate },
+        additionals: { create: addToCreate },
       }
     })
 

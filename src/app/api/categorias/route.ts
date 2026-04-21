@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
   const categorias = await prisma.materialCategory.findMany({
     where,
     orderBy: { name: 'asc' },
+    include: { _count: { select: { materials: { where: { isActive: true } } } } },
   })
 
   return NextResponse.json(categorias)

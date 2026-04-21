@@ -6,13 +6,15 @@ type Categoria = {
   id: string
   name: string
   description?: string
-  seccion: 'CORTES' | 'CANTO' | 'HERRAJES' | null
+  seccion: 'CORTES' | 'CANTO' | 'HERRAJES' | 'ADICIONALES' | null
+  _count?: { materials: number }
 }
 
 const SECCIONES = [
   { value: 'CORTES', label: 'Cortes', color: 'badge-blue' },
   { value: 'CANTO', label: 'Canto', color: 'badge-teal' },
   { value: 'HERRAJES', label: 'Herrajes', color: 'badge-yellow' },
+  { value: 'ADICIONALES', label: 'Adicionales', color: 'badge-purple' },
 ]
 
 function SeccionBadge({ seccion }: { seccion: Categoria['seccion'] }) {
@@ -135,14 +137,15 @@ export default function CategoriasPage() {
               <th>Nombre</th>
               <th>Sección</th>
               <th>Descripción</th>
+              <th>Materiales</th>
               <th>Acciones</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={4} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Cargando...</td></tr>
+              <tr><td colSpan={5} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Cargando...</td></tr>
             ) : categorias.length === 0 ? (
-              <tr><td colSpan={4}>
+              <tr><td colSpan={5}>
                 <div className="empty-state">
                   <p>No se encontraron categorías</p>
                   <button className="btn btn-secondary btn-sm" onClick={openCreate}>Agregar categoría</button>
@@ -153,6 +156,9 @@ export default function CategoriasPage() {
                 <td style={{ fontWeight: 500 }}>{c.name}</td>
                 <td><SeccionBadge seccion={c.seccion} /></td>
                 <td style={{ color: 'var(--text-muted)' }}>{c.description ?? '—'}</td>
+                <td>
+                  <span className="badge badge-gray">{c._count?.materials ?? 0}</span>
+                </td>
                 <td>
                   <div className="flex gap-1">
                     <button className="btn btn-ghost btn-sm" onClick={() => openEdit(c)}>

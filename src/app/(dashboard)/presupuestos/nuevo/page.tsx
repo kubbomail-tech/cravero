@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 
 type Client = { id: string; fullName: string; businessName?: string }
-type Material = { id: string; name: string; unitCost: number; category: { name: string } }
+type Material = { id: string; name: string; unitCost: number; category: { name: string; seccion?: string | null } }
 type FurnitureType = { id: string; name: string }
-type WizardStep = 'type' | 'cuts' | 'hardware' | 'confirm'
+type WizardStep = 'type' | 'cuts' | 'hardware' | 'additionals' | 'confirm'
 
 interface CutItem {
   materialId: string; description: string; width: number; height: number
@@ -14,9 +14,10 @@ interface CutItem {
   edgeBands: { side: string; materialId: string; quantity: number }[]
 }
 interface AccessoryItem { materialId: string; description: string; quantity: number }
+interface AdditionalItem { materialId: string; description: string; quantity: number; showPrice: boolean }
 interface FurnitureItem {
   furnitureTypeId: string; name: string; description: string; quantity: number
-  cuts: CutItem[]; accessories: AccessoryItem[]
+  cuts: CutItem[]; accessories: AccessoryItem[]; additionals: AdditionalItem[]
 }
 
 // ─── Design tokens (applied consistently everywhere) ────────────────────────
@@ -81,6 +82,10 @@ export default function NuevoPresupuestoPage() {
       const mat = materials.find(m => m.id === a.materialId)
       total += a.quantity * (mat?.unitCost ?? 0)
     })
+    item.additionals.forEach(a => {
+      const mat = materials.find(m => m.id === a.materialId)
+      total += a.quantity * (mat?.unitCost ?? 0)
+    })
     return total
   }
 
@@ -102,7 +107,7 @@ export default function NuevoPresupuestoPage() {
 
   // Wizard
   const selectType = (ft: FurnitureType) => {
-    setDraft({ furnitureTypeId: ft.id, name: ft.name, description: '', quantity: 1, cuts: [], accessories: [] })
+    setDraft({ furnitureTypeId: ft.id, name: ft.name, description: '', quantity: 1, cuts: [], accessories: [], additionals: [] })
     setWizardStep('cuts')
   }
   const addCut = () => setDraft(d => d ? ({ ...d, cuts: [...d.cuts, { materialId: '', description: 'Pieza nueva', width: 0, height: 0, quantity: 1, edgeBandMaterialId: '', edgeBands: [] }] }) : d)
@@ -124,6 +129,9 @@ export default function NuevoPresupuestoPage() {
   const addAcc = () => setDraft(d => d ? ({ ...d, accessories: [...d.accessories, { materialId: '', description: 'Accesorio', quantity: 1 }] }) : d)
   const updateAcc = (i: number, p: Partial<AccessoryItem>) => setDraft(d => { if (!d) return d; const a = [...d.accessories]; a[i] = { ...a[i], ...p }; return { ...d, accessories: a } })
   const removeAcc = (i: number) => setDraft(d => d ? ({ ...d, accessories: d.accessories.filter((_, j) => j !== i) }) : d)
+  const addAdditional = () => setDraft(d => d ? ({ ...d, additionals: [...d.additionals, { materialId: '', description: '', quantity: 1, showPrice: true }] }) : d)
+  const updateAdditional = (i: number, p: Partial<AdditionalItem>) => setDraft(d => { if (!d) return d; const a = [...d.additionals]; a[i] = { ...a[i], ...p }; return { ...d, additionals: a } })
+  const removeAdditional = (i: number) => setDraft(d => d ? ({ ...d, additionals: d.additionals.filter((_, j) => j !== i) }) : d)
   const confirmItem = () => { if (draft) { setItems(p => [...p, draft]); setDraft(null); setWizardStep(null) } }
   const addAnother = () => { if (draft) { setItems(p => [...p, draft]); setDraft(null); setWizardStep('type') } }
 
@@ -135,9 +143,10 @@ export default function NuevoPresupuestoPage() {
     } finally { setSaving(false) }
   }
 
-  const placaMats = materials.filter(m => { const c = m.category?.name?.toLowerCase() ?? ''; return c.includes('placa') || c.includes('madera') || c.includes('tablero') })
-  const cantoMats = materials.filter(m => m.category?.name?.toLowerCase().includes('canto'))
-  const herrajeMats = materials.filter(m => { const c = m.category?.name?.toLowerCase() ?? ''; return c.includes('herraje') || c.includes('acc') || c.includes('bisagra') || c.includes('tornillo') || c.includes('corredera') })
+  const placaMats = materials.filter(m => m.category?.seccion === 'CORTES')
+  const cantoMats = materials.filter(m => m.category?.seccion === 'CANTO')
+  const herrajeMats = materials.filter(m => m.category?.seccion === 'HERRAJES')
+  const additionalMats = materials.filter(m => m.category?.seccion === 'ADICIONALES')
 
   // ─── Shared classes (Precision Padding Edition) ─────────────────────────────
   const lbl = 'block text-[10px] font-bold text-slate-500 uppercase tracking-[0.1em] mb-2 ml-1'
@@ -150,8 +159,8 @@ export default function NuevoPresupuestoPage() {
   const btnGhost = 'text-xs font-bold uppercase tracking-widest text-slate-400 hover:text-[#198e85] transition-colors px-4'
   const btnDanger = 'w-11 h-11 rounded-2xl bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all text-xl leading-none shadow-sm'
 
-  const STEPS: WizardStep[] = ['type', 'cuts', 'hardware', 'confirm']
-  const STEP_LABELS = ['Tipo', 'Cortes', 'Herrajes', 'Confirmar']
+  const STEPS: WizardStep[] = ['type', 'cuts', 'hardware', 'additionals', 'confirm']
+  const STEP_LABELS = ['Tipo', 'Cortes', 'Herrajes', 'Adicionales', 'Confirmar']
 
   // ── PRE-STEP: datos generales ──────────────────────────────────────────
   if (!started) return (
@@ -480,11 +489,7 @@ export default function NuevoPresupuestoPage() {
                             </div>
                             <div className="col-span-12 lg:col-span-4">
                               <label className={lbl}>Material / Placa</label>
-                              <select className={sel} value={cut.materialId}
-                                onChange={e => updateCut(cIdx, { materialId: e.target.value })}>
-                                <option value="">Seleccionar material…</option>
-                                {placaMats.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-                              </select>
+                              <MaterialCombobox options={placaMats} value={cut.materialId} onChange={(v: string) => updateCut(cIdx, { materialId: v })} placeholder="Seleccionar material…" className={sel} />
                             </div>
                             <div className="col-span-12 lg:col-span-2">
                               <label className={lbl}>Cantidad</label>
@@ -520,12 +525,10 @@ export default function NuevoPresupuestoPage() {
                               </div>
                             </div>
                             <div className="col-span-12 lg:col-span-3">
-                              <label className={lbl}>Material de canto</label>
-                              <select className={sel} value={cut.edgeBandMaterialId}
-                                onChange={e => setEdgeMat(cIdx, e.target.value)}>
-                                <option value="">Sin canteado</option>
-                                {cantoMats.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-                              </select>
+                              <label className={lbl} style={cut.edgeBands.length > 0 && !cut.edgeBandMaterialId ? { color: '#ef4444' } : {}}>
+                                Material de canto {cut.edgeBands.length > 0 && !cut.edgeBandMaterialId ? '⚠ requerido' : ''}
+                              </label>
+                              <MaterialCombobox options={cantoMats} value={cut.edgeBandMaterialId} onChange={(v: string) => setEdgeMat(cIdx, v)} placeholder="Sin canteado" className={sel} hasError={cut.edgeBands.length > 0 && !cut.edgeBandMaterialId} />
                             </div>
                           </div>
                           
@@ -549,7 +552,11 @@ export default function NuevoPresupuestoPage() {
                             <p className="text-xl font-black text-[#198e85] tabular-nums">{fmt(draftSubtotal)}</p>
                           </div>
                         )}
-                        <button onClick={() => setWizardStep('hardware')} className={btnDark}>Continuar a Herrajes →</button>
+                        <button onClick={() => {
+                          const missing = draft.cuts.some(c => c.edgeBands.length > 0 && !c.edgeBandMaterialId)
+                          if (missing) { alert('Hay piezas con cantos seleccionados pero sin material de canto asignado.'); return }
+                          setWizardStep('hardware')
+                        }} className={btnDark}>Continuar a Herrajes →</button>
                       </div>
                     </div>
                   </div>
@@ -583,10 +590,7 @@ export default function NuevoPresupuestoPage() {
                           </div>
                           <div className="col-span-6">
                             <label className={lbl}>Material / Herraje</label>
-                            <select className={sel} value={acc.materialId} onChange={e => updateAcc(aIdx, { materialId: e.target.value })}>
-                              <option value="">Seleccionar…</option>
-                              {herrajeMats.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-                            </select>
+                            <MaterialCombobox options={herrajeMats} value={acc.materialId} onChange={(v: string) => updateAcc(aIdx, { materialId: v })} className={sel} />
                           </div>
                           <div className="col-span-2">
                             <label className={lbl}>Cantidad</label>
@@ -601,12 +605,69 @@ export default function NuevoPresupuestoPage() {
 
                     <div className="px-8 py-5 border-t border-slate-100 flex justify-between items-center bg-slate-50/60">
                       <button onClick={() => setWizardStep('cuts')} className={btnGhost}>← Volver a Cortes</button>
+                      <button onClick={() => setWizardStep('additionals')} className={btnDark}>Continuar a Adicionales →</button>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── STEP 4: Adicionales ─────────────────────────────────── */}
+                {wizardStep === 'additionals' && draft && (
+                  <div className="card">
+                    <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
+                      <div>
+                        <h2 className="text-xl font-black text-slate-900">{draft.name} — Adicionales</h2>
+                        <p className="text-sm text-slate-400 mt-0.5">Tacho de basura, mesada, instalación, etc.</p>
+                      </div>
+                      <button onClick={addAdditional} className={btnDark}>+ Agregar adicional</button>
+                    </div>
+
+                    <div className="px-8 py-6 space-y-3 min-h-[160px]">
+                      {draft.additionals.length === 0 && (
+                        <div className="py-14 flex flex-col items-center gap-3">
+                          <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center">
+                            <svg className="w-6 h-6 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" /></svg>
+                          </div>
+                          <p className="text-sm font-medium text-slate-400">Sin adicionales — podés dejarlo vacío</p>
+                        </div>
+                      )}
+                      {draft.additionals.map((add, aIdx) => (
+                        <div key={aIdx} className="grid grid-cols-12 gap-4 items-end bg-slate-50 rounded-xl px-5 py-4 border border-slate-100">
+                          <div className="col-span-3">
+                            <label className={lbl}>Descripción</label>
+                            <input className={inp} placeholder="Ej: Tacho de basura" value={add.description} onChange={e => updateAdditional(aIdx, { description: e.target.value })} />
+                          </div>
+                          <div className="col-span-5">
+                            <label className={lbl}>Material / Ítem</label>
+                            <MaterialCombobox options={additionalMats} value={add.materialId} onChange={(v: string) => updateAdditional(aIdx, { materialId: v })} className={sel} />
+                          </div>
+                          <div className="col-span-2">
+                            <label className={lbl}>Cantidad</label>
+                            <input type="number" min={1} className={numInp} value={add.quantity} onChange={e => updateAdditional(aIdx, { quantity: parseInt(e.target.value) || 1 })} />
+                          </div>
+                          <div className="col-span-1 flex flex-col items-center gap-1">
+                            <label className={lbl + ' text-center'}>Precio</label>
+                            <button
+                              onClick={() => updateAdditional(aIdx, { showPrice: !add.showPrice })}
+                              title={add.showPrice ? 'Precio visible en PDF' : 'Precio oculto en PDF'}
+                              className={`w-10 h-10 rounded-xl border-2 flex items-center justify-center text-lg transition-all ${add.showPrice ? 'bg-[#198e85] border-[#198e85] text-white' : 'bg-white border-slate-200 text-slate-300'}`}>
+                              {add.showPrice ? '👁' : '🙈'}
+                            </button>
+                          </div>
+                          <div className="col-span-1 flex justify-end items-end">
+                            <button onClick={() => removeAdditional(aIdx)} className={btnDanger}>×</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="px-8 py-5 border-t border-slate-100 flex justify-between items-center bg-slate-50/60">
+                      <button onClick={() => setWizardStep('hardware')} className={btnGhost}>← Volver a Herrajes</button>
                       <button onClick={() => setWizardStep('confirm')} className={btnDark}>Revisar y Confirmar →</button>
                     </div>
                   </div>
                 )}
 
-                {/* ── STEP 4: Confirmar ───────────────────────────────────── */}
+                {/* ── STEP 5: Confirmar ───────────────────────────────────── */}
                 {wizardStep === 'confirm' && draft && (
                   <div className="card">
                     <div className="px-8 py-6 border-b border-slate-100">
@@ -655,10 +716,31 @@ export default function NuevoPresupuestoPage() {
                           </div>
                         </div>
                       </div>
+                      {draft.additionals.length > 0 && (
+                        <div>
+                          <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-3">Adicionales ({draft.additionals.length})</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            {draft.additionals.map((a, i) => {
+                              const mat = materials.find(m => m.id === a.materialId)
+                              return (
+                                <div key={i} className="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-xl px-4 py-3">
+                                  <p className="text-sm font-semibold text-slate-900">{mat?.name ?? a.description ?? '—'}</p>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs font-medium text-slate-400">×{a.quantity}</span>
+                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md" style={{ background: a.showPrice ? '#f0faf9' : 'transparent', color: a.showPrice ? '#198e85' : '#94a3b8' }}>
+                                      {a.showPrice ? 'precio visible' : 'precio oculto'}
+                                    </span>
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <div className="px-8 py-5 border-t border-slate-100 bg-slate-50/60 flex items-center justify-between">
-                      <button onClick={() => setWizardStep('hardware')} className={btnGhost}>← Volver</button>
+                      <button onClick={() => setWizardStep('additionals')} className={btnGhost}>← Volver</button>
                       <div className="flex items-center gap-3">
                         <button onClick={confirmItem} className={btnDark}>Guardar y terminar</button>
                         <button onClick={addAnother} className={btnPrimary}>+ Agregar otro mueble</button>
@@ -708,6 +790,7 @@ export default function NuevoPresupuestoPage() {
                               <div className="flex gap-4 mt-0.5">
                                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{item.cuts.length} piezas</span>
                                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{item.accessories.length} herrajes</span>
+                                {item.additionals.length > 0 && <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{item.additionals.length} adicionales</span>}
                                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest tabular-nums">{item.cuts.reduce((a, c) => a + (c.width * c.height / 1e6 * c.quantity), 0).toFixed(2)} m²</span>
                               </div>
                            </div>
@@ -728,6 +811,85 @@ export default function NuevoPresupuestoPage() {
         </main>
       </div>
     </>
+  )
+}
+
+function MaterialCombobox({ options, value, onChange, placeholder, className, hasError }: {
+  options: { id: string; name: string }[]
+  value: string
+  onChange: (id: string) => void
+  placeholder?: string
+  className?: string
+  hasError?: boolean
+}) {
+  const [open, setOpen] = useState(false)
+  const [q, setQ] = useState('')
+  const ref = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const selected = options.find(m => m.id === value)
+  const filtered = q ? options.filter(m => m.name.toLowerCase().includes(q.toLowerCase())) : options
+
+  useEffect(() => {
+    function handle(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) { setOpen(false); setQ('') }
+    }
+    if (open) { document.addEventListener('mousedown', handle); setTimeout(() => inputRef.current?.focus(), 10) }
+    return () => document.removeEventListener('mousedown', handle)
+  }, [open])
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button
+        type="button"
+        className={className}
+        style={{
+          textAlign: 'left', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          ...(hasError ? { borderColor: '#ef4444' } : {}),
+        }}
+        onClick={() => setOpen(o => !o)}
+      >
+        <span style={{ color: selected ? undefined : '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {selected ? selected.name : (placeholder ?? 'Seleccionar…')}
+        </span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ flexShrink: 0, marginLeft: 4, opacity: 0.4 }}><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+
+      {open && (
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 200,
+          background: 'white', border: '1px solid #e2e8f0', borderRadius: '0.875rem',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.12)', overflow: 'hidden',
+        }}>
+          <div style={{ padding: '0.5rem', borderBottom: '1px solid #f1f5f9' }}>
+            <input
+              ref={inputRef}
+              style={{ width: '100%', height: '2rem', padding: '0 0.625rem', fontSize: '0.8125rem', color: '#334155', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '0.5rem', outline: 'none', boxSizing: 'border-box' }}
+              placeholder="Buscar…"
+              value={q}
+              onChange={e => setQ(e.target.value)}
+            />
+          </div>
+          <div style={{ maxHeight: 200, overflowY: 'auto' }}>
+            {value && (
+              <button type="button" style={{ width: '100%', textAlign: 'left', padding: '0.5rem 0.75rem', fontSize: '0.8rem', color: '#94a3b8', background: 'none', border: 'none', cursor: 'pointer', display: 'block' }}
+                onClick={() => { onChange(''); setOpen(false); setQ('') }}>
+                — Ninguno
+              </button>
+            )}
+            {filtered.length === 0
+              ? <p style={{ padding: '0.875rem', fontSize: '0.8125rem', color: '#94a3b8', textAlign: 'center' }}>Sin resultados</p>
+              : filtered.map(m => (
+                <button key={m.id} type="button"
+                  style={{ width: '100%', textAlign: 'left', padding: '0.5rem 0.75rem', fontSize: '0.8125rem', fontWeight: m.id === value ? 600 : 400, color: m.id === value ? '#198e85' : '#1e293b', background: m.id === value ? '#f0faf9' : 'none', border: 'none', cursor: 'pointer', display: 'block' }}
+                  onClick={() => { onChange(m.id); setOpen(false); setQ('') }}>
+                  {m.name}
+                </button>
+              ))
+            }
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 

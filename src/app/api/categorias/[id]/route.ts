@@ -31,14 +31,15 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
   const { id } = await params
 
-  const materialsCount = await prisma.material.count({ where: { categoryId: id } })
+  const materialsCount = await prisma.material.count({ where: { categoryId: id, isActive: true } })
   if (materialsCount > 0) {
     return NextResponse.json(
-      { error: `No se puede eliminar: hay ${materialsCount} material(es) en esta categoría` },
+      { error: `No se puede eliminar: hay ${materialsCount} material(es) activo(s) en esta categoría` },
       { status: 409 }
     )
   }
 
+  await prisma.material.deleteMany({ where: { categoryId: id, isActive: false } })
   await prisma.materialCategory.delete({ where: { id } })
   return NextResponse.json({ ok: true })
 }

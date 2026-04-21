@@ -2,7 +2,9 @@
 
 import { useState } from 'react'
 import { usePathname } from 'next/navigation'
+import { motion, AnimatePresence } from 'framer-motion'
 import Sidebar from './Sidebar'
+import Link from 'next/link'
 
 export default function AppShell({
   children,
@@ -40,6 +42,15 @@ export default function AppShell({
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <Link href="/presupuestos/nuevo" style={{
+              height: 34, padding: '0 14px',
+              background: 'var(--primary)',
+              color: 'white', fontWeight: 600, fontSize: '0.8125rem',
+              borderRadius: '0.5rem', display: 'flex', alignItems: 'center', gap: 6,
+              textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0,
+            }}>
+              <span style={{ fontSize: '1.1rem', lineHeight: 1 }}>+</span> Nuevo presupuesto
+            </Link>
             <div style={{
               width: 34, height: 34,
               borderRadius: '50%',
@@ -61,7 +72,16 @@ export default function AppShell({
           </div>
         </header>
         <main className="page-content">
-          {children}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={pathname}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.18, ease: 'easeOut' }}
+            >
+              {children}
+            </motion.div>
+          </AnimatePresence>
         </main>
       </div>
     </div>
