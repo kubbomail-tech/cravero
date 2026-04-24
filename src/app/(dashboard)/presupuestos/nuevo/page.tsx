@@ -92,7 +92,9 @@ export default function NuevoPresupuestoPage() {
   const draftSubtotal = draft ? calcItem(draft) : 0
   const globalSubtotal = items.reduce((a, b) => a + calcItem(b), 0) + draftSubtotal
   const labor = globalSubtotal * (form.laborPercentage / 100)
-  const globalTotal = (globalSubtotal + labor - form.discountAmount) * (1 + form.vatPercentage / 100)
+  const subtotalBeforeDiscount = globalSubtotal + labor
+  const discountDollar = subtotalBeforeDiscount * (form.discountAmount / 100)
+  const globalTotal = (subtotalBeforeDiscount - discountDollar) * (1 + form.vatPercentage / 100)
   const fmt = (v: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(v)
   const calcCut = (cut: CutItem) => {
     const mat = materials.find(m => m.id === cut.materialId)
@@ -230,7 +232,7 @@ export default function NuevoPresupuestoPage() {
               {[
                 { label: 'Mano de obra', key: 'laborPercentage', suffix: '%' },
                 { label: 'IVA', key: 'vatPercentage', suffix: '%' },
-                { label: 'Descuento', key: 'discountAmount', suffix: '$' },
+                { label: 'Descuento', key: 'discountAmount', suffix: '%' },
               ].map(({ label, key, suffix }) => (
                 <div key={key} className="flex-1 bg-slate-50 rounded-xl px-3 py-2 border border-slate-100">
                   <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">{label}</p>
@@ -343,7 +345,7 @@ export default function NuevoPresupuestoPage() {
               {[
                 { label: 'Mano de obra', key: 'laborPercentage', suffix: '%' },
                 { label: 'IVA', key: 'vatPercentage', suffix: '%' },
-                { label: 'Descuento', key: 'discountAmount', suffix: '$' },
+                { label: 'Descuento', key: 'discountAmount', suffix: '%' },
               ].map(({ label, key, suffix }) => (
                 <div key={key} className="flex items-center justify-between h-10 bg-slate-50/80 rounded-xl px-4 border border-transparent hover:border-slate-100 transition-colors">
                   <span className="text-xs font-medium text-slate-500">{label}</span>

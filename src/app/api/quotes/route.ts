@@ -174,7 +174,9 @@ export async function POST(req: NextRequest) {
 
     // 4. Final Quote Totals
     const labor = quoteSubtotalMaterials * (toNumber(quoteData.laborPercentage) / 100)
-    const beforeTax = quoteSubtotalMaterials + labor - toNumber(quoteData.discountAmount)
+    const subtotalBeforeDiscount = quoteSubtotalMaterials + labor
+    const discountDollar = subtotalBeforeDiscount * (toNumber(quoteData.discountAmount) / 100)
+    const beforeTax = subtotalBeforeDiscount - discountDollar
     const vat = beforeTax * (toNumber(quoteData.vatPercentage) / 100)
     const total = beforeTax + vat
 

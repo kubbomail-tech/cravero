@@ -205,7 +205,10 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
 
   totalRow('Subtotal materiales:', fmt(quote.subtotalMaterials))
   totalRow(`Mano de obra (${toNumber(quote.laborPercentage)}%):`, fmt(quote.subtotalLabor))
-  if (hasDiscount) totalRow('Descuento:', `-${fmt(quote.discountAmount)}`)
+  if (hasDiscount) {
+    const discountDollar = toNumber(quote.subtotalMaterials) + toNumber(quote.subtotalLabor) - toNumber(quote.subtotalBeforeTax)
+    totalRow(`Descuento (${toNumber(quote.discountAmount)}%):`, `-${fmt(discountDollar)}`)
+  }
   totalRow('Subtotal:', fmt(quote.subtotalBeforeTax))
   totalRow(`IVA (${toNumber(quote.vatPercentage)}%):`, fmt(quote.vatAmount))
   ty -= 14

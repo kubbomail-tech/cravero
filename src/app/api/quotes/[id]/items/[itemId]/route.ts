@@ -16,12 +16,9 @@ export async function GET(
     where: { id: itemId },
     include: {
       furnitureType: true,
-      cuts: {
-        include: { material: true }
-      },
-      accessories: {
-        include: { material: true }
-      }
+      cuts: { include: { edgeBands: true } },
+      accessories: true,
+      additionals: true,
     }
   })
 
@@ -47,11 +44,13 @@ export async function DELETE(
 
     if (quote) {
       const totalMat = allItems.reduce(
-        (a, i) => a + toNumber(i.subtotalMaterials) + toNumber(i.subtotalHardware),
+        (a, i) => a + toNumber(i.subtotalMaterials) + toNumber(i.subtotalHardware) + toNumber(i.subtotalAdditionals),
         0
       )
       const labor = totalMat * (toNumber(quote.laborPercentage) / 100)
-      const beforeTax = totalMat + labor - toNumber(quote.discountAmount)
+      const subtotalBeforeDiscount = totalMat + labor
+      const discountDollar = subtotalBeforeDiscount * (toNumber(quote.discountAmount) / 100)
+      const beforeTax = subtotalBeforeDiscount - discountDollar
       const vat = beforeTax * (toNumber(quote.vatPercentage) / 100)
       const total = beforeTax + vat
 

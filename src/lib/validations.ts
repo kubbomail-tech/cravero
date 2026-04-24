@@ -102,7 +102,7 @@ export const quoteSchema = z.object({
   expirationDate: z.string().optional().or(z.literal('')),
   laborPercentage: z.coerce.number().min(0).default(30),
   vatPercentage: z.coerce.number().min(0).default(21),
-  discountAmount: z.coerce.number().min(0).default(0),
+  discountAmount: z.coerce.number().min(0).max(100).default(0),
   paymentTerms: z.string().optional(),
   notes: z.string().optional(),
   items: z.array(quoteItemSchema).optional().default([]),

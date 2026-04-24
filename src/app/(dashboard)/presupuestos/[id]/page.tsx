@@ -180,7 +180,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                       {[
                         { label: 'Cortes', value: `${item.cuts?.length ?? 0} piezas` },
                         { label: 'Herrajes', value: `${item.accessories?.length ?? 0} unid.` },
-                        { label: 'Materiales', value: fmt(item.subtotalMaterials) },
+                        { label: 'Adicionales', value: `${item.additionals?.length ?? 0} unid.` },
                       ].map(stat => (
                         <div key={stat.label} style={{ background: 'var(--border-light)', padding: '0.75rem', borderRadius: 'var(--radius-sm)' }}>
                           <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '0.25rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{stat.label}</div>
@@ -238,7 +238,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
               {toNumber(quote.discountAmount) > 0 && (
                 <div className="flex justify-between">
                   <span style={{ color: 'var(--text-muted)' }}>Descuento</span>
-                  <span style={{ color: 'var(--danger)' }}>-{fmt(quote.discountAmount)}</span>
+                  <span>{parseFloat(String(quote.discountAmount))}%</span>
                 </div>
               )}
             </div>
@@ -255,8 +255,8 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
             </div>
             {toNumber(quote.discountAmount) > 0 && (
               <div className="total-row">
-                <span className="label">Descuento</span>
-                <span className="value">-{fmt(quote.discountAmount)}</span>
+                <span className="label">Descuento ({parseFloat(String(quote.discountAmount))}%)</span>
+                <span className="value" style={{ color: 'var(--danger)' }}>-{fmt(toNumber(quote.subtotalMaterials) + toNumber(quote.subtotalLabor) - toNumber(quote.subtotalBeforeTax))}</span>
               </div>
             )}
             <div className="total-row">
