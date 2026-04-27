@@ -116,6 +116,7 @@ export async function POST(req: NextRequest) {
           areaPerUnit: calc.areaPerUnit,
           totalArea: calc.totalArea,
           subtotalCost: calc.subtotalCost,
+          showInPdf: (cut as any).showInPdf ?? true,
           edgeBands: { create: edgeBandsToCreate }
         }
       })

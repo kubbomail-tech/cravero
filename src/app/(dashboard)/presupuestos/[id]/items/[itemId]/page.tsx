@@ -4,13 +4,22 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 
 type Material = { id: string; name: string; unitCost: number; category?: { seccion?: string | null } }
+type Unit = { id: string; code: string; name: string }
 
 const fmt = (n: any) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(parseFloat(String(n)))
 const SIDES = [['TOP','Sup'],['BOTTOM','Inf'],['LEFT','Izq'],['RIGHT','Der']] as const
 
 // ── Combobox ────────────────────────────────────────────────────────────────
-function MatCombo({ options, value, onChange, placeholder }: {
+function EyeIcon() {
+  return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+}
+function EyeOffIcon() {
+  return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+}
+
+function MatCombo({ options, value, onChange, placeholder, section, onCreated }: {
   options: Material[]; value: string; onChange: (id: string) => void; placeholder?: string
+  section?: string; onCreated?: () => void
 }) {
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
@@ -19,35 +28,107 @@ function MatCombo({ options, value, onChange, placeholder }: {
   const selected = options.find(m => m.id === value)
   const filtered = q ? options.filter(m => m.name.toLowerCase().includes(q.toLowerCase())) : options
 
+  const [creating, setCreating] = useState(false)
+  const [createName, setCreateName] = useState('')
+  const [createCost, setCreateCost] = useState('')
+  const [createUnitId, setCreateUnitId] = useState('')
+  const [units, setUnits] = useState<Unit[]>([])
+  const [createSaving, setCreateSaving] = useState(false)
+
   useEffect(() => {
     const handle = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) { setOpen(false); setQ('') } }
     if (open) { document.addEventListener('mousedown', handle); setTimeout(() => inputRef.current?.focus(), 10) }
     return () => document.removeEventListener('mousedown', handle)
   }, [open])
 
+  async function openCreate() {
+    setCreateName(q); setCreateCost(''); setOpen(false); setQ('')
+    const data = await fetch('/api/unidades').then(r => r.json())
+    setUnits(data)
+    if (data.length > 0) setCreateUnitId(data[0].id)
+    setCreating(true)
+  }
+
+  async function handleCreate() {
+    if (!createName || !section || !createUnitId) return
+    setCreateSaving(true)
+    const cats = await fetch(`/api/categorias?seccion=${section}`).then(r => r.json())
+    const cat = cats[0]
+    if (!cat) { setCreateSaving(false); return }
+    const res = await fetch('/api/materials', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: createName, unitCost: parseFloat(createCost) || 0, categoryId: cat.id, unitId: createUnitId, isActive: true }),
+    })
+    const mat = await res.json()
+    setCreateSaving(false)
+    if (res.ok) { setCreating(false); onChange(mat.id); onCreated?.() }
+  }
+
   return (
-    <div ref={ref} style={{ position: 'relative' }}>
-      <button type="button" className="form-select" style={{ textAlign: 'left', display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }} onClick={() => setOpen(o => !o)}>
-        <span style={{ color: selected ? undefined : 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selected ? selected.name : (placeholder ?? 'Seleccionar…')}</span>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ flexShrink: 0, marginLeft: 4, opacity: 0.4 }}><path d="M6 9l6 6 6-6"/></svg>
-      </button>
-      {open && (
-        <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 200, background: 'white', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', boxShadow: '0 8px 32px rgba(0,0,0,0.12)', overflow: 'hidden' }}>
-          <div style={{ padding: '0.5rem', borderBottom: '1px solid var(--border-light)' }}>
-            <input ref={inputRef} style={{ width: '100%', height: '2rem', padding: '0 0.625rem', fontSize: '0.8125rem', color: 'var(--text)', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '0.5rem', outline: 'none', boxSizing: 'border-box' }} placeholder="Buscar…" value={q} onChange={e => setQ(e.target.value)} />
+    <>
+      <div ref={ref} style={{ position: 'relative' }}>
+        <button type="button" className="form-select" style={{ textAlign: 'left', display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }} onClick={() => setOpen(o => !o)}>
+          <span style={{ color: selected ? undefined : 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selected ? selected.name : (placeholder ?? 'Seleccionar…')}</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ flexShrink: 0, marginLeft: 4, opacity: 0.4 }}><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        {open && (
+          <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 200, background: 'white', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', boxShadow: '0 8px 32px rgba(0,0,0,0.12)', overflow: 'hidden' }}>
+            <div style={{ padding: '0.5rem', borderBottom: '1px solid var(--border-light)' }}>
+              <input ref={inputRef} style={{ width: '100%', height: '2rem', padding: '0 0.625rem', fontSize: '0.8125rem', color: 'var(--text)', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '0.5rem', outline: 'none', boxSizing: 'border-box' }} placeholder="Buscar…" value={q} onChange={e => setQ(e.target.value)} />
+            </div>
+            <div style={{ maxHeight: 200, overflowY: 'auto' }}>
+              {value && <button type="button" style={{ width: '100%', textAlign: 'left', padding: '0.5rem 0.75rem', fontSize: '0.8rem', color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', display: 'block' }} onClick={() => { onChange(''); setOpen(false); setQ('') }}>— Ninguno</button>}
+              {filtered.length === 0
+                ? <p style={{ padding: '0.875rem', fontSize: '0.8125rem', color: 'var(--text-muted)', textAlign: 'center' }}>Sin resultados</p>
+                : filtered.map(m => (
+                  <button key={m.id} type="button" style={{ width: '100%', textAlign: 'left', padding: '0.5rem 0.75rem', fontSize: '0.8125rem', fontWeight: m.id === value ? 600 : 400, color: m.id === value ? 'var(--primary)' : 'var(--text)', background: m.id === value ? 'var(--primary-50)' : 'none', border: 'none', cursor: 'pointer', display: 'block' }}
+                    onClick={() => { onChange(m.id); setOpen(false); setQ('') }}>{m.name}</button>
+                ))}
+              {section && (
+                <button type="button" onClick={openCreate}
+                  style={{ width: '100%', textAlign: 'left', padding: '0.5rem 0.75rem', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--primary)', background: 'none', border: 'none', borderTop: '1px solid var(--border-light)', cursor: 'pointer', display: 'block' }}>
+                  + Crear{q ? ` "${q}"` : ' nuevo'}
+                </button>
+              )}
+            </div>
           </div>
-          <div style={{ maxHeight: 200, overflowY: 'auto' }}>
-            {value && <button type="button" style={{ width: '100%', textAlign: 'left', padding: '0.5rem 0.75rem', fontSize: '0.8rem', color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', display: 'block' }} onClick={() => { onChange(''); setOpen(false); setQ('') }}>— Ninguno</button>}
-            {filtered.length === 0
-              ? <p style={{ padding: '0.875rem', fontSize: '0.8125rem', color: 'var(--text-muted)', textAlign: 'center' }}>Sin resultados</p>
-              : filtered.map(m => (
-                <button key={m.id} type="button" style={{ width: '100%', textAlign: 'left', padding: '0.5rem 0.75rem', fontSize: '0.8125rem', fontWeight: m.id === value ? 600 : 400, color: m.id === value ? 'var(--primary)' : 'var(--text)', background: m.id === value ? 'var(--primary-50)' : 'none', border: 'none', cursor: 'pointer', display: 'block' }}
-                  onClick={() => { onChange(m.id); setOpen(false); setQ('') }}>{m.name}</button>
-              ))}
+        )}
+      </div>
+      {creating && (
+        <div className="modal-overlay" onClick={() => setCreating(false)}>
+          <div className="modal" style={{ maxWidth: 400 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Nuevo material</h3>
+              <button className="btn btn-ghost btn-sm" onClick={() => setCreating(false)}>×</button>
+            </div>
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div className="form-group">
+                <label className="form-label">Nombre</label>
+                <input className="form-input" autoFocus value={createName} onChange={e => setCreateName(e.target.value)} placeholder="Nombre del material…" />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div className="form-group">
+                  <label className="form-label">Costo unitario</label>
+                  <input type="number" className="form-input" placeholder="0.00" value={createCost} onChange={e => setCreateCost(e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Unidad</label>
+                  <select className="form-select" value={createUnitId} onChange={e => setCreateUnitId(e.target.value)}>
+                    {units.map(u => <option key={u.id} value={u.id}>{u.name} ({u.code})</option>)}
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setCreating(false)}>Cancelar</button>
+              <button className="btn btn-primary" onClick={handleCreate} disabled={createSaving || !createName || !createUnitId}>
+                {createSaving ? 'Guardando…' : 'Crear material'}
+              </button>
+            </div>
           </div>
         </div>
       )}
-    </div>
+    </>
   )
 }
 
@@ -61,7 +142,7 @@ export default function QuoteItemDetailPage({ params }: { params: Promise<{ id: 
   const [modal, setModal] = useState<'cut' | 'accessory' | 'additional' | null>(null)
   const [saving, setSaving] = useState(false)
 
-  const [cutForm, setCutForm] = useState({ description: '', materialId: '', width: 0, height: 0, quantity: 1, edgeBandMaterialId: '', sides: [] as string[] })
+  const [cutForm, setCutForm] = useState({ description: '', materialId: '', width: 0, height: 0, quantity: 1, edgeBandMaterialId: '', sides: [] as string[], showInPdf: true })
   const [accForm, setAccForm] = useState({ description: '', materialId: '', quantity: 1 })
   const [addForm, setAddForm] = useState({ description: '', materialId: '', quantity: 1, showPrice: true })
 
@@ -96,7 +177,7 @@ export default function QuoteItemDetailPage({ params }: { params: Promise<{ id: 
       body: JSON.stringify({ ...cutForm, edgeBands }),
     })
     setSaving(false)
-    if (res.ok) { setModal(null); setCutForm({ description: '', materialId: '', width: 0, height: 0, quantity: 1, edgeBandMaterialId: '', sides: [] }); fetchItem() }
+    if (res.ok) { setModal(null); setCutForm({ description: '', materialId: '', width: 0, height: 0, quantity: 1, edgeBandMaterialId: '', sides: [], showInPdf: true }); fetchItem() }
   }
 
   async function saveAcc() {
@@ -167,10 +248,10 @@ export default function QuoteItemDetailPage({ params }: { params: Promise<{ id: 
           </div>
           <div className="table-wrapper" style={{ margin: 0, border: 'none' }}>
             <table>
-              <thead><tr><th>Descripción</th><th>Material</th><th>Ancho</th><th>Alto</th><th>Cant.</th><th>Cantos</th><th>Subtotal</th><th></th></tr></thead>
+              <thead><tr><th>Descripción</th><th>Material</th><th>Ancho</th><th>Alto</th><th>Cant.</th><th>Cantos</th><th>PDF</th><th>Subtotal</th><th></th></tr></thead>
               <tbody>
                 {item.cuts.length === 0
-                  ? <tr><td colSpan={8} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Sin cortes</td></tr>
+                  ? <tr><td colSpan={9} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Sin cortes</td></tr>
                   : item.cuts.map((cut: any) => (
                     <tr key={cut.id}>
                       <td style={{ fontWeight: 500 }}>{cut.description ?? '—'}</td>
@@ -179,6 +260,7 @@ export default function QuoteItemDetailPage({ params }: { params: Promise<{ id: 
                       <td>{cut.height} mm</td>
                       <td>{cut.quantity}</td>
                       <td>{cut.edgeBands?.length ?? 0}</td>
+                      <td><span className="badge badge-gray">{cut.showInPdf !== false ? 'Visible' : 'Oculto'}</span></td>
                       <td style={{ fontWeight: 600, color: 'var(--primary)' }}>{fmt(cut.subtotalCost)}</td>
                       <td><button className="btn btn-ghost btn-sm" style={{ color: 'var(--danger)' }} onClick={() => deleteCut(cut.id)}>✕</button></td>
                     </tr>
@@ -254,7 +336,7 @@ export default function QuoteItemDetailPage({ params }: { params: Promise<{ id: 
               </div>
               <div className="form-group">
                 <label className="form-label">Material / Placa</label>
-                <MatCombo options={placaMats} value={cutForm.materialId} onChange={v => setCutForm(f => ({ ...f, materialId: v }))} placeholder="Seleccionar placa…" />
+                <MatCombo options={placaMats} value={cutForm.materialId} onChange={v => setCutForm(f => ({ ...f, materialId: v }))} placeholder="Seleccionar placa…" section="CORTES" onCreated={fetchItem} />
               </div>
               <div className="form-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
                 <div className="form-group">
@@ -289,9 +371,19 @@ export default function QuoteItemDetailPage({ params }: { params: Promise<{ id: 
                   <label className="form-label" style={!cutForm.edgeBandMaterialId ? { color: 'var(--danger)' } : {}}>
                     Material de canto {!cutForm.edgeBandMaterialId ? '⚠ requerido' : ''}
                   </label>
-                  <MatCombo options={cantoMats} value={cutForm.edgeBandMaterialId} onChange={v => setCutForm(f => ({ ...f, edgeBandMaterialId: v }))} placeholder="Seleccionar canto…" />
+                  <MatCombo options={cantoMats} value={cutForm.edgeBandMaterialId} onChange={v => setCutForm(f => ({ ...f, edgeBandMaterialId: v }))} placeholder="Seleccionar canto…" section="CANTO" onCreated={fetchItem} />
                 </div>
               )}
+              <div className="form-group">
+                <label className="form-label">Mostrar detalles en PDF</label>
+                <button type="button" onClick={() => setCutForm(f => ({ ...f, showInPdf: !f.showInPdf }))}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                  <span style={{ width: 30, height: 30, borderRadius: 8, border: `1.5px solid ${cutForm.showInPdf ? 'var(--primary)' : 'var(--border)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: cutForm.showInPdf ? 'var(--primary)' : 'var(--text-muted)', background: cutForm.showInPdf ? 'var(--primary-50)' : 'white', transition: 'all 0.15s' }}>
+                    {cutForm.showInPdf ? <EyeIcon /> : <EyeOffIcon />}
+                  </span>
+                  <span style={{ fontSize: '0.875rem', color: 'var(--text)' }}>{cutForm.showInPdf ? 'Visible en PDF' : 'Oculto en PDF'}</span>
+                </button>
+              </div>
             </div>
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setModal(null)}>Cancelar</button>
@@ -315,7 +407,7 @@ export default function QuoteItemDetailPage({ params }: { params: Promise<{ id: 
               </div>
               <div className="form-group">
                 <label className="form-label">Material / Herraje</label>
-                <MatCombo options={herrajeMats} value={accForm.materialId} onChange={v => setAccForm(f => ({ ...f, materialId: v }))} placeholder="Seleccionar herraje…" />
+                <MatCombo options={herrajeMats} value={accForm.materialId} onChange={v => setAccForm(f => ({ ...f, materialId: v }))} placeholder="Seleccionar herraje…" section="HERRAJES" onCreated={fetchItem} />
               </div>
               <div className="form-group">
                 <label className="form-label">Cantidad</label>
@@ -342,7 +434,7 @@ export default function QuoteItemDetailPage({ params }: { params: Promise<{ id: 
               </div>
               <div className="form-group">
                 <label className="form-label">Material / Ítem</label>
-                <MatCombo options={addMats} value={addForm.materialId} onChange={v => setAddForm(f => ({ ...f, materialId: v }))} placeholder="Seleccionar…" />
+                <MatCombo options={addMats} value={addForm.materialId} onChange={v => setAddForm(f => ({ ...f, materialId: v }))} placeholder="Seleccionar…" section="ADICIONALES" onCreated={fetchItem} />
               </div>
               <div className="form-group">
                 <label className="form-label">Cantidad</label>
@@ -352,8 +444,8 @@ export default function QuoteItemDetailPage({ params }: { params: Promise<{ id: 
                 <label className="form-label">Mostrar precio en PDF</label>
                 <button type="button" onClick={() => setAddForm(f => ({ ...f, showPrice: !f.showPrice }))}
                   style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                  <span style={{ width: 40, height: 22, borderRadius: 11, background: addForm.showPrice ? 'var(--primary)' : 'var(--border)', display: 'flex', alignItems: 'center', padding: '0 3px', transition: 'background 0.2s' }}>
-                    <span style={{ width: 16, height: 16, borderRadius: '50%', background: 'white', transform: addForm.showPrice ? 'translateX(18px)' : 'translateX(0)', transition: 'transform 0.2s' }} />
+                  <span style={{ width: 30, height: 30, borderRadius: 8, border: `1.5px solid ${addForm.showPrice ? 'var(--primary)' : 'var(--border)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: addForm.showPrice ? 'var(--primary)' : 'var(--text-muted)', background: addForm.showPrice ? 'var(--primary-50)' : 'white', transition: 'all 0.15s' }}>
+                    {addForm.showPrice ? <EyeIcon /> : <EyeOffIcon />}
                   </span>
                   <span style={{ fontSize: '0.875rem', color: 'var(--text)' }}>{addForm.showPrice ? 'Precio visible' : 'Precio oculto'}</span>
                 </button>

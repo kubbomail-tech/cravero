@@ -111,6 +111,15 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
 
   y -= 86
 
+  // Notes — between client block and items
+  if (quote.notes) {
+    checkSpace(44)
+    y -= 8
+    page.drawText('OBSERVACIONES:', { x: 48, y: y - 8, size: 7, font: fontBold, color: MUTED })
+    page.drawText(quote.notes.substring(0, 120), { x: 48, y: y - 20, size: 8.5, font, color: TEXT })
+    y -= 36
+  }
+
   // Items
   for (const item of quote.items) {
     checkSpace(60)
@@ -142,6 +151,7 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
       y -= 18
 
       for (const cut of item.cuts) {
+        if (cut.showInPdf === false) continue
         checkSpace(14)
         const matName = cut.materialNameSnapshot ?? '—'
         page.drawText(matName.substring(0, 22), { x: 48, y: y - 8, size: 7.5, font, color: TEXT })
@@ -222,14 +232,6 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
     page.drawText('FORMAS DE PAGO:', { x: 40, y: y, size: 7.5, font: fontBold, color: MUTED })
     page.drawText(quote.paymentTerms, { x: 40, y: y - 14, size: 8.5, font, color: TEXT })
     y -= 32
-  }
-
-  // Notes
-  if (quote.notes) {
-    checkSpace(40)
-    y = Math.min(y, H - 820)
-    page.drawText('OBSERVACIONES:', { x: 40, y: y - (quote.paymentTerms ? 0 : totalsH + 16), size: 7.5, font: fontBold, color: MUTED })
-    page.drawText(quote.notes.substring(0, 120), { x: 40, y: y - (quote.paymentTerms ? 14 : totalsH + 30), size: 8.5, font, color: TEXT })
   }
 
   // Footer

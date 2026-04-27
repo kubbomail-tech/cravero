@@ -259,6 +259,7 @@ model QuoteItemCut {
   totalArea               Decimal  @default(0) @map("total_area") @db.Decimal(12, 6)   // m2
   notes                   String?
   subtotalCost            Decimal  @default(0) @map("subtotal_cost") @db.Decimal(12, 2)
+  showInPdf               Boolean  @default(true) @map("show_in_pdf")
   createdAt               DateTime @default(now()) @map("created_at")
   updatedAt               DateTime @updatedAt @map("updated_at")
 

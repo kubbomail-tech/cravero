@@ -10,7 +10,7 @@ type WizardStep = 'type' | 'cuts' | 'hardware' | 'additionals' | 'confirm'
 
 interface CutItem {
   materialId: string; description: string; width: number; height: number
-  quantity: number; edgeBandMaterialId: string
+  quantity: number; edgeBandMaterialId: string; showInPdf: boolean
   edgeBands: { side: string; materialId: string; quantity: number }[]
 }
 interface AccessoryItem { materialId: string; description: string; quantity: number }
@@ -52,6 +52,8 @@ export default function NuevoPresupuestoPage() {
   const [wizardStep, setWizardStep] = useState<WizardStep | null>(null)
   const [draft, setDraft] = useState<FurnitureItem | null>(null)
   const [started, setStarted] = useState(false)
+
+  const refreshMaterials = () => fetch('/api/materials?isActive=true').then(r => r.json()).then(setMaterials)
 
   useEffect(() => {
     Promise.all([
@@ -112,7 +114,7 @@ export default function NuevoPresupuestoPage() {
     setDraft({ furnitureTypeId: ft.id, name: ft.name, description: '', quantity: 1, cuts: [], accessories: [], additionals: [] })
     setWizardStep('cuts')
   }
-  const addCut = () => setDraft(d => d ? ({ ...d, cuts: [...d.cuts, { materialId: '', description: 'Pieza nueva', width: 0, height: 0, quantity: 1, edgeBandMaterialId: '', edgeBands: [] }] }) : d)
+  const addCut = () => setDraft(d => d ? ({ ...d, cuts: [...d.cuts, { materialId: '', description: 'Pieza nueva', width: 0, height: 0, quantity: 1, edgeBandMaterialId: '', showInPdf: true, edgeBands: [] }] }) : d)
   const updateCut = (i: number, p: Partial<CutItem>) => setDraft(d => { if (!d) return d; const c = [...d.cuts]; c[i] = { ...c[i], ...p }; return { ...d, cuts: c } })
   const removeCut = (i: number) => setDraft(d => d ? ({ ...d, cuts: d.cuts.filter((_, j) => j !== i) }) : d)
   const toggleEdge = (cIdx: number, side: string) => {
@@ -478,9 +480,16 @@ export default function NuevoPresupuestoPage() {
                         <div key={cIdx} className="px-10 py-8 space-y-6 hover:bg-slate-50/30 transition-colors">
                           <div className="flex items-center justify-between mb-2">
                              <span className="px-3 py-1 bg-slate-100 rounded-lg text-[10px] font-black text-slate-500 uppercase tracking-widest">Pieza #{cIdx + 1}</span>
-                             <button onClick={() => removeCut(cIdx)} className="text-xs font-bold text-red-300 hover:text-red-500 transition-colors flex items-center gap-1">
-                               Eliminar pieza ✕
-                             </button>
+                             <div className="flex items-center gap-4">
+                               <button type="button" onClick={() => updateCut(cIdx, { showInPdf: !cut.showInPdf })}
+                                 title={cut.showInPdf ? 'Visible en PDF' : 'Oculto en PDF'}
+                                 style={{ width: 30, height: 30, borderRadius: '0.5rem', background: 'none', border: '1.5px solid', borderColor: cut.showInPdf ? '#198e85' : '#e2e8f0', color: cut.showInPdf ? '#198e85' : '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s' }}>
+                                 {cut.showInPdf ? <EyeIcon size={14} /> : <EyeOffIcon size={14} />}
+                               </button>
+                               <button onClick={() => removeCut(cIdx)} className="text-xs font-bold text-red-300 hover:text-red-500 transition-colors flex items-center gap-1">
+                                 Eliminar pieza ✕
+                               </button>
+                             </div>
                           </div>
                           
                           <div className="grid grid-cols-12 gap-6 items-end">
@@ -491,7 +500,7 @@ export default function NuevoPresupuestoPage() {
                             </div>
                             <div className="col-span-12 lg:col-span-4">
                               <label className={lbl}>Material / Placa</label>
-                              <MaterialCombobox options={placaMats} value={cut.materialId} onChange={(v: string) => updateCut(cIdx, { materialId: v })} placeholder="Seleccionar material…" className={sel} />
+                              <MaterialCombobox options={placaMats} value={cut.materialId} onChange={(v: string) => updateCut(cIdx, { materialId: v })} placeholder="Seleccionar material…" className={sel} section="CORTES" onCreated={refreshMaterials} />
                             </div>
                             <div className="col-span-12 lg:col-span-2">
                               <label className={lbl}>Cantidad</label>
@@ -530,7 +539,7 @@ export default function NuevoPresupuestoPage() {
                               <label className={lbl} style={cut.edgeBands.length > 0 && !cut.edgeBandMaterialId ? { color: '#ef4444' } : {}}>
                                 Material de canto {cut.edgeBands.length > 0 && !cut.edgeBandMaterialId ? '⚠ requerido' : ''}
                               </label>
-                              <MaterialCombobox options={cantoMats} value={cut.edgeBandMaterialId} onChange={(v: string) => setEdgeMat(cIdx, v)} placeholder="Sin canteado" className={sel} hasError={cut.edgeBands.length > 0 && !cut.edgeBandMaterialId} />
+                              <MaterialCombobox options={cantoMats} value={cut.edgeBandMaterialId} onChange={(v: string) => setEdgeMat(cIdx, v)} placeholder="Sin canteado" className={sel} hasError={cut.edgeBands.length > 0 && !cut.edgeBandMaterialId} section="CANTO" onCreated={refreshMaterials} />
                             </div>
                           </div>
                           
@@ -592,7 +601,7 @@ export default function NuevoPresupuestoPage() {
                           </div>
                           <div className="col-span-6">
                             <label className={lbl}>Material / Herraje</label>
-                            <MaterialCombobox options={herrajeMats} value={acc.materialId} onChange={(v: string) => updateAcc(aIdx, { materialId: v })} className={sel} />
+                            <MaterialCombobox options={herrajeMats} value={acc.materialId} onChange={(v: string) => updateAcc(aIdx, { materialId: v })} className={sel} section="HERRAJES" onCreated={refreshMaterials} />
                           </div>
                           <div className="col-span-2">
                             <label className={lbl}>Cantidad</label>
@@ -640,7 +649,7 @@ export default function NuevoPresupuestoPage() {
                           </div>
                           <div className="col-span-5">
                             <label className={lbl}>Material / Ítem</label>
-                            <MaterialCombobox options={additionalMats} value={add.materialId} onChange={(v: string) => updateAdditional(aIdx, { materialId: v })} className={sel} />
+                            <MaterialCombobox options={additionalMats} value={add.materialId} onChange={(v: string) => updateAdditional(aIdx, { materialId: v })} className={sel} section="ADICIONALES" onCreated={refreshMaterials} />
                           </div>
                           <div className="col-span-2">
                             <label className={lbl}>Cantidad</label>
@@ -651,8 +660,8 @@ export default function NuevoPresupuestoPage() {
                             <button
                               onClick={() => updateAdditional(aIdx, { showPrice: !add.showPrice })}
                               title={add.showPrice ? 'Precio visible en PDF' : 'Precio oculto en PDF'}
-                              className={`w-10 h-10 rounded-xl border-2 flex items-center justify-center text-lg transition-all ${add.showPrice ? 'bg-[#198e85] border-[#198e85] text-white' : 'bg-white border-slate-200 text-slate-300'}`}>
-                              {add.showPrice ? '👁' : '🙈'}
+                              style={{ width: 30, height: 30, borderRadius: '0.5rem', background: 'none', border: '1.5px solid', borderColor: add.showPrice ? '#198e85' : '#e2e8f0', color: add.showPrice ? '#198e85' : '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
+                              {add.showPrice ? <EyeIcon size={14} /> : <EyeOffIcon size={14} />}
                             </button>
                           </div>
                           <div className="col-span-1 flex justify-end items-end">
@@ -816,13 +825,15 @@ export default function NuevoPresupuestoPage() {
   )
 }
 
-function MaterialCombobox({ options, value, onChange, placeholder, className, hasError }: {
+function MaterialCombobox({ options, value, onChange, placeholder, className, hasError, section, onCreated }: {
   options: { id: string; name: string }[]
   value: string
   onChange: (id: string) => void
   placeholder?: string
   className?: string
   hasError?: boolean
+  section?: string
+  onCreated?: () => void
 }) {
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
@@ -830,6 +841,13 @@ function MaterialCombobox({ options, value, onChange, placeholder, className, ha
   const inputRef = useRef<HTMLInputElement>(null)
   const selected = options.find(m => m.id === value)
   const filtered = q ? options.filter(m => m.name.toLowerCase().includes(q.toLowerCase())) : options
+
+  const [creating, setCreating] = useState(false)
+  const [createName, setCreateName] = useState('')
+  const [createCost, setCreateCost] = useState('')
+  const [createUnitId, setCreateUnitId] = useState('')
+  const [units, setUnits] = useState<{ id: string; code: string; name: string }[]>([])
+  const [createSaving, setCreateSaving] = useState(false)
 
   useEffect(() => {
     function handle(e: MouseEvent) {
@@ -839,59 +857,128 @@ function MaterialCombobox({ options, value, onChange, placeholder, className, ha
     return () => document.removeEventListener('mousedown', handle)
   }, [open])
 
-  return (
-    <div ref={ref} style={{ position: 'relative' }}>
-      <button
-        type="button"
-        className={className}
-        style={{
-          textAlign: 'left', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          ...(hasError ? { borderColor: '#ef4444' } : {}),
-        }}
-        onClick={() => setOpen(o => !o)}
-      >
-        <span style={{ color: selected ? undefined : '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {selected ? selected.name : (placeholder ?? 'Seleccionar…')}
-        </span>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ flexShrink: 0, marginLeft: 4, opacity: 0.4 }}><path d="M6 9l6 6 6-6"/></svg>
-      </button>
+  async function openCreate() {
+    setCreateName(q); setCreateCost(''); setOpen(false); setQ('')
+    const data = await fetch('/api/unidades').then(r => r.json())
+    setUnits(data)
+    if (data.length > 0) setCreateUnitId(data[0].id)
+    setCreating(true)
+  }
 
-      {open && (
-        <div style={{
-          position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 200,
-          background: 'white', border: '1px solid #e2e8f0', borderRadius: '0.875rem',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.12)', overflow: 'hidden',
-        }}>
-          <div style={{ padding: '0.5rem', borderBottom: '1px solid #f1f5f9' }}>
-            <input
-              ref={inputRef}
-              style={{ width: '100%', height: '2rem', padding: '0 0.625rem', fontSize: '0.8125rem', color: '#334155', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '0.5rem', outline: 'none', boxSizing: 'border-box' }}
-              placeholder="Buscar…"
-              value={q}
-              onChange={e => setQ(e.target.value)}
-            />
-          </div>
-          <div style={{ maxHeight: 200, overflowY: 'auto' }}>
-            {value && (
-              <button type="button" style={{ width: '100%', textAlign: 'left', padding: '0.5rem 0.75rem', fontSize: '0.8rem', color: '#94a3b8', background: 'none', border: 'none', cursor: 'pointer', display: 'block' }}
-                onClick={() => { onChange(''); setOpen(false); setQ('') }}>
-                — Ninguno
-              </button>
-            )}
-            {filtered.length === 0
-              ? <p style={{ padding: '0.875rem', fontSize: '0.8125rem', color: '#94a3b8', textAlign: 'center' }}>Sin resultados</p>
-              : filtered.map(m => (
-                <button key={m.id} type="button"
-                  style={{ width: '100%', textAlign: 'left', padding: '0.5rem 0.75rem', fontSize: '0.8125rem', fontWeight: m.id === value ? 600 : 400, color: m.id === value ? '#198e85' : '#1e293b', background: m.id === value ? '#f0faf9' : 'none', border: 'none', cursor: 'pointer', display: 'block' }}
-                  onClick={() => { onChange(m.id); setOpen(false); setQ('') }}>
-                  {m.name}
+  async function handleCreate() {
+    if (!createName || !section || !createUnitId) return
+    setCreateSaving(true)
+    const cats = await fetch(`/api/categorias?seccion=${section}`).then(r => r.json())
+    const cat = cats[0]
+    if (!cat) { setCreateSaving(false); return }
+    const res = await fetch('/api/materials', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: createName, unitCost: parseFloat(createCost) || 0, categoryId: cat.id, unitId: createUnitId, isActive: true }),
+    })
+    const mat = await res.json()
+    setCreateSaving(false)
+    if (res.ok) { setCreating(false); onCreated?.(); onChange(mat.id) }
+  }
+
+  return (
+    <>
+      <div ref={ref} style={{ position: 'relative' }}>
+        <button
+          type="button"
+          className={className}
+          style={{
+            textAlign: 'left', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            ...(hasError ? { borderColor: '#ef4444' } : {}),
+          }}
+          onClick={() => setOpen(o => !o)}
+        >
+          <span style={{ color: selected ? undefined : '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {selected ? selected.name : (placeholder ?? 'Seleccionar…')}
+          </span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ flexShrink: 0, marginLeft: 4, opacity: 0.4 }}><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+
+        {open && (
+          <div style={{
+            position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 200,
+            background: 'white', border: '1px solid #e2e8f0', borderRadius: '0.875rem',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.12)', overflow: 'hidden',
+          }}>
+            <div style={{ padding: '0.5rem', borderBottom: '1px solid #f1f5f9' }}>
+              <input
+                ref={inputRef}
+                style={{ width: '100%', height: '2rem', padding: '0 0.625rem', fontSize: '0.8125rem', color: '#334155', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '0.5rem', outline: 'none', boxSizing: 'border-box' }}
+                placeholder="Buscar…"
+                value={q}
+                onChange={e => setQ(e.target.value)}
+              />
+            </div>
+            <div style={{ maxHeight: 200, overflowY: 'auto' }}>
+              {value && (
+                <button type="button" style={{ width: '100%', textAlign: 'left', padding: '0.5rem 0.75rem', fontSize: '0.8rem', color: '#94a3b8', background: 'none', border: 'none', cursor: 'pointer', display: 'block' }}
+                  onClick={() => { onChange(''); setOpen(false); setQ('') }}>
+                  — Ninguno
                 </button>
-              ))
-            }
+              )}
+              {filtered.length === 0
+                ? <p style={{ padding: '0.875rem', fontSize: '0.8125rem', color: '#94a3b8', textAlign: 'center' }}>Sin resultados</p>
+                : filtered.map(m => (
+                  <button key={m.id} type="button"
+                    style={{ width: '100%', textAlign: 'left', padding: '0.5rem 0.75rem', fontSize: '0.8125rem', fontWeight: m.id === value ? 600 : 400, color: m.id === value ? '#198e85' : '#1e293b', background: m.id === value ? '#f0faf9' : 'none', border: 'none', cursor: 'pointer', display: 'block' }}
+                    onClick={() => { onChange(m.id); setOpen(false); setQ('') }}>
+                    {m.name}
+                  </button>
+                ))
+              }
+              {section && (
+                <button type="button" onClick={openCreate}
+                  style={{ width: '100%', textAlign: 'left', padding: '0.5rem 0.75rem', fontSize: '0.8125rem', fontWeight: 600, color: '#198e85', background: 'none', border: 'none', borderTop: '1px solid #f1f5f9', cursor: 'pointer', display: 'block' }}>
+                  + Crear{q ? ` "${q}"` : ' nuevo'}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+      {creating && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setCreating(false)}>
+          <div style={{ background: 'white', borderRadius: '1rem', padding: '1.5rem', width: '100%', maxWidth: 400, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#0f172a', margin: 0 }}>Nuevo material</h3>
+              <button type="button" onClick={() => setCreating(false)} style={{ background: 'none', border: 'none', fontSize: '1.25rem', cursor: 'pointer', color: '#94a3b8', lineHeight: 1 }}>×</button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.6875rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.375rem' }}>Nombre</label>
+                <input autoFocus style={{ width: '100%', height: '2.75rem', padding: '0 1rem', fontSize: '0.875rem', color: '#1e293b', background: 'white', border: '1px solid #e2e8f0', borderRadius: '0.75rem', outline: 'none', boxSizing: 'border-box' }}
+                  value={createName} onChange={e => setCreateName(e.target.value)} placeholder="Nombre del material…" />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.6875rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.375rem' }}>Costo unitario</label>
+                  <input type="number" style={{ width: '100%', height: '2.75rem', padding: '0 1rem', fontSize: '0.875rem', color: '#1e293b', background: 'white', border: '1px solid #e2e8f0', borderRadius: '0.75rem', outline: 'none', boxSizing: 'border-box' }}
+                    placeholder="0.00" value={createCost} onChange={e => setCreateCost(e.target.value)} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.6875rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.375rem' }}>Unidad</label>
+                  <select style={{ width: '100%', height: '2.75rem', padding: '0 1rem', fontSize: '0.875rem', color: '#1e293b', background: 'white', border: '1px solid #e2e8f0', borderRadius: '0.75rem', outline: 'none', boxSizing: 'border-box' }}
+                    value={createUnitId} onChange={e => setCreateUnitId(e.target.value)}>
+                    {units.map(u => <option key={u.id} value={u.id}>{u.name} ({u.code})</option>)}
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '1.25rem' }}>
+              <button type="button" onClick={() => setCreating(false)} style={{ height: '2.5rem', padding: '0 1.25rem', fontSize: '0.875rem', fontWeight: 600, color: '#64748b', background: '#f1f5f9', border: 'none', borderRadius: '0.75rem', cursor: 'pointer' }}>Cancelar</button>
+              <button type="button" onClick={handleCreate} disabled={createSaving || !createName || !createUnitId}
+                style={{ height: '2.5rem', padding: '0 1.25rem', fontSize: '0.875rem', fontWeight: 600, color: 'white', background: createSaving || !createName || !createUnitId ? '#94a3b8' : '#198e85', border: 'none', borderRadius: '0.75rem', cursor: createSaving ? 'wait' : 'pointer' }}>
+                {createSaving ? 'Guardando…' : 'Crear material'}
+              </button>
+            </div>
           </div>
         </div>
       )}
-    </div>
+    </>
   )
 }
 
@@ -901,4 +988,10 @@ function FurnitureIcon() {
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 12h18M5 6h14a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2z" />
     </svg>
   )
+}
+function EyeIcon({ size = 16 }: { size?: number }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+}
+function EyeOffIcon({ size = 16 }: { size?: number }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
 }
