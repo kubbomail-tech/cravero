@@ -11,7 +11,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const body = await req.json()
   const parsed = materialCategorySchema.partial().safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
+    return NextResponse.json({ error: parsed.error.issues }, { status: 400 })
   }
 
   try {
@@ -25,7 +25,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -39,18 +39,24 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     )
   }
 
-  // Null out FK references in quote items before deleting inactive materials
+  // Clear all FK references to inactive materials before deleting them
   const inactiveMats = await prisma.material.findMany({ where: { categoryId: id, isActive: false }, select: { id: true } })
   if (inactiveMats.length > 0) {
-    const ids = inactiveMats.map(m => m.id)
+    const matIds = inactiveMats.map(m => m.id)
     await Promise.all([
-      prisma.quoteItemCut.updateMany({ where: { materialId: { in: ids } }, data: { materialId: null } }),
-      prisma.quoteItemEdgeBand.updateMany({ where: { materialId: { in: ids } }, data: { materialId: null } }),
-      prisma.quoteItemAccessory.updateMany({ where: { materialId: { in: ids } }, data: { materialId: null } }),
-      prisma.quoteItemAdditional.updateMany({ where: { materialId: { in: ids } }, data: { materialId: null } }),
+      // Nullable FKs — set to null
+      prisma.quoteItemCut.updateMany({ where: { materialId: { in: matIds } }, data: { materialId: null } }),
+      prisma.quoteItemEdgeBand.updateMany({ where: { materialId: { in: matIds } }, data: { materialId: null } }),
+      prisma.quoteItemAccessory.updateMany({ where: { materialId: { in: matIds } }, data: { materialId: null } }),
+      prisma.quoteItemAdditional.updateMany({ where: { materialId: { in: matIds } }, data: { materialId: null } }),
+      // Required FK (PriceUpdateBatchItem.materialId) — delete the rows
+      prisma.priceUpdateBatchItem.deleteMany({ where: { materialId: { in: matIds } } }),
     ])
-    await prisma.material.deleteMany({ where: { id: { in: ids } } })
+    await prisma.material.deleteMany({ where: { id: { in: matIds } } })
   }
+
+  // PriceUpdateBatch.categoryId is nullable — null it out before deleting the category
+  await prisma.priceUpdateBatch.updateMany({ where: { categoryId: id }, data: { categoryId: null } })
   await prisma.materialCategory.delete({ where: { id } })
   return NextResponse.json({ ok: true })
 }
