@@ -39,7 +39,18 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     )
   }
 
-  await prisma.material.deleteMany({ where: { categoryId: id, isActive: false } })
+  // Null out FK references in quote items before deleting inactive materials
+  const inactiveMats = await prisma.material.findMany({ where: { categoryId: id, isActive: false }, select: { id: true } })
+  if (inactiveMats.length > 0) {
+    const ids = inactiveMats.map(m => m.id)
+    await Promise.all([
+      prisma.quoteItemCut.updateMany({ where: { materialId: { in: ids } }, data: { materialId: null } }),
+      prisma.quoteItemEdgeBand.updateMany({ where: { materialId: { in: ids } }, data: { materialId: null } }),
+      prisma.quoteItemAccessory.updateMany({ where: { materialId: { in: ids } }, data: { materialId: null } }),
+      prisma.quoteItemAdditional.updateMany({ where: { materialId: { in: ids } }, data: { materialId: null } }),
+    ])
+    await prisma.material.deleteMany({ where: { id: { in: ids } } })
+  }
   await prisma.materialCategory.delete({ where: { id } })
   return NextResponse.json({ ok: true })
 }

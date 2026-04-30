@@ -95,16 +95,20 @@ export default function CategoriasPage() {
   async function confirmDelete() {
     if (!selected) return
     setSaving(true)
-    const res = await fetch(`/api/categorias/${selected.id}`, { method: 'DELETE' })
-    if (!res.ok) {
-      const d = await res.json()
-      setError(d.error ?? 'No se puede eliminar')
+    try {
+      const res = await fetch(`/api/categorias/${selected.id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}))
+        setError(d.error ?? 'No se puede eliminar')
+        return
+      }
+      setModal(null)
+      fetchCategorias()
+    } catch {
+      setError('Error al eliminar')
+    } finally {
       setSaving(false)
-      return
     }
-    setModal(null)
-    setSaving(false)
-    fetchCategorias()
   }
 
   return (
