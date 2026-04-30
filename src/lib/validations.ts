@@ -84,6 +84,7 @@ export const quoteItemAdditionalSchema = z.object({
   description: z.string().optional(),
   quantity: z.coerce.number().min(1).default(1),
   showPrice: z.boolean().default(true),
+  manualPrice: z.coerce.number().min(0).optional(),
 })
 
 export const quoteItemSchema = z.object({

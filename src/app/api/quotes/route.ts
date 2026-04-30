@@ -142,7 +142,7 @@ export async function POST(req: NextRequest) {
       const addToCreate = (item.additionals || []).map(add => {
         const mat = add.materialId ? matMap.get(add.materialId) : null
         const unitCost = mat ? toNumber(mat.unitCost) : 0
-        const subtotalCost = unitCost * add.quantity
+        const subtotalCost = add.manualPrice != null ? add.manualPrice : unitCost * add.quantity
 
         itemSubtotalAdditionals += subtotalCost
 

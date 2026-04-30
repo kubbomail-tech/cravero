@@ -144,7 +144,7 @@ export default function QuoteItemDetailPage({ params }: { params: Promise<{ id: 
 
   const [cutForm, setCutForm] = useState({ description: '', materialId: '', width: 0, height: 0, quantity: 1, edgeBandMaterialId: '', sides: [] as string[], showInPdf: true })
   const [accForm, setAccForm] = useState({ description: '', materialId: '', quantity: 1 })
-  const [addForm, setAddForm] = useState({ description: '', materialId: '', quantity: 1, showPrice: true })
+  const [addForm, setAddForm] = useState({ description: '', materialId: '', quantity: 1, showPrice: true, priceMode: 'calc' as 'calc' | 'fixed', manualPrice: 0 })
 
   useEffect(() => { params.then(setIds) }, [params])
 
@@ -193,11 +193,12 @@ export default function QuoteItemDetailPage({ params }: { params: Promise<{ id: 
   async function saveAdd() {
     if (!ids) return
     setSaving(true)
+    const payload = { ...addForm, manualPrice: addForm.priceMode === 'fixed' ? addForm.manualPrice : undefined }
     const res = await fetch(`/api/quotes/${ids.id}/items/${ids.itemId}/additionals`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(addForm),
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
     })
     setSaving(false)
-    if (res.ok) { setModal(null); setAddForm({ description: '', materialId: '', quantity: 1, showPrice: true }); fetchItem() }
+    if (res.ok) { setModal(null); setAddForm({ description: '', materialId: '', quantity: 1, showPrice: true, priceMode: 'calc', manualPrice: 0 }); fetchItem() }
   }
 
   async function deleteCut(cutId: string) {
@@ -428,18 +429,45 @@ export default function QuoteItemDetailPage({ params }: { params: Promise<{ id: 
           <div className="modal" style={{ maxWidth: 480 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header"><h3>Agregar adicional</h3><button className="btn btn-ghost btn-sm" onClick={() => setModal(null)}>×</button></div>
             <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {/* Mode toggle */}
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                {(['calc', 'fixed'] as const).map(mode => (
+                  <button key={mode} type="button" onClick={() => setAddForm(f => ({ ...f, priceMode: mode }))}
+                    style={{ flex: 1, height: '2.25rem', fontSize: '0.8125rem', fontWeight: 600, borderRadius: '0.75rem', border: '1.5px solid', cursor: 'pointer', transition: 'all 0.15s',
+                      background: addForm.priceMode === mode ? 'var(--primary)' : 'white',
+                      borderColor: addForm.priceMode === mode ? 'var(--primary)' : 'var(--border)',
+                      color: addForm.priceMode === mode ? 'white' : 'var(--text-muted)' }}>
+                    {mode === 'calc' ? 'Calculado (material × cant.)' : 'Precio fijo'}
+                  </button>
+                ))}
+              </div>
               <div className="form-group">
                 <label className="form-label">Descripción</label>
                 <input className="form-input" placeholder="Ej: Tacho de basura…" value={addForm.description} onChange={e => setAddForm(f => ({ ...f, description: e.target.value }))} />
               </div>
-              <div className="form-group">
-                <label className="form-label">Material / Ítem</label>
-                <MatCombo options={addMats} value={addForm.materialId} onChange={v => setAddForm(f => ({ ...f, materialId: v }))} placeholder="Seleccionar…" section="ADICIONALES" onCreated={fetchItem} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Cantidad</label>
-                <input type="number" min={1} className="form-input" value={addForm.quantity} onChange={e => setAddForm(f => ({ ...f, quantity: parseInt(e.target.value) || 1 }))} />
-              </div>
+              {addForm.priceMode === 'calc' ? (
+                <>
+                  <div className="form-group">
+                    <label className="form-label">Material / Ítem</label>
+                    <MatCombo options={addMats} value={addForm.materialId} onChange={v => setAddForm(f => ({ ...f, materialId: v }))} placeholder="Seleccionar…" section="ADICIONALES" onCreated={fetchItem} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Cantidad</label>
+                    <input type="number" min={1} className="form-input" value={addForm.quantity} onChange={e => setAddForm(f => ({ ...f, quantity: parseInt(e.target.value) || 1 }))} />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="form-group">
+                    <label className="form-label">Material / Ítem (opcional)</label>
+                    <MatCombo options={addMats} value={addForm.materialId} onChange={v => setAddForm(f => ({ ...f, materialId: v }))} placeholder="Seleccionar (opcional)…" section="ADICIONALES" onCreated={fetchItem} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Precio total</label>
+                    <input type="number" min={0} className="form-input" placeholder="0.00" value={addForm.manualPrice || ''} onChange={e => setAddForm(f => ({ ...f, manualPrice: parseFloat(e.target.value) || 0 }))} />
+                  </div>
+                </>
+              )}
               <div className="form-group">
                 <label className="form-label">Mostrar precio en PDF</label>
                 <button type="button" onClick={() => setAddForm(f => ({ ...f, showPrice: !f.showPrice }))}

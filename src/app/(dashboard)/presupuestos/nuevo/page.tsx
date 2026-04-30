@@ -14,7 +14,7 @@ interface CutItem {
   edgeBands: { side: string; materialId: string; quantity: number }[]
 }
 interface AccessoryItem { materialId: string; description: string; quantity: number }
-interface AdditionalItem { materialId: string; description: string; quantity: number; showPrice: boolean }
+interface AdditionalItem { materialId: string; description: string; quantity: number; showPrice: boolean; priceMode: 'calc' | 'fixed'; manualPrice: number }
 interface FurnitureItem {
   furnitureTypeId: string; name: string; description: string; quantity: number
   cuts: CutItem[]; accessories: AccessoryItem[]; additionals: AdditionalItem[]
@@ -85,6 +85,7 @@ export default function NuevoPresupuestoPage() {
       total += a.quantity * (mat?.unitCost ?? 0)
     })
     item.additionals.forEach(a => {
+      if (a.priceMode === 'fixed') { total += a.manualPrice; return }
       const mat = materials.find(m => m.id === a.materialId)
       total += a.quantity * (mat?.unitCost ?? 0)
     })
@@ -133,7 +134,7 @@ export default function NuevoPresupuestoPage() {
   const addAcc = () => setDraft(d => d ? ({ ...d, accessories: [...d.accessories, { materialId: '', description: 'Accesorio', quantity: 1 }] }) : d)
   const updateAcc = (i: number, p: Partial<AccessoryItem>) => setDraft(d => { if (!d) return d; const a = [...d.accessories]; a[i] = { ...a[i], ...p }; return { ...d, accessories: a } })
   const removeAcc = (i: number) => setDraft(d => d ? ({ ...d, accessories: d.accessories.filter((_, j) => j !== i) }) : d)
-  const addAdditional = () => setDraft(d => d ? ({ ...d, additionals: [...d.additionals, { materialId: '', description: '', quantity: 1, showPrice: true }] }) : d)
+  const addAdditional = () => setDraft(d => d ? ({ ...d, additionals: [...d.additionals, { materialId: '', description: '', quantity: 1, showPrice: true, priceMode: 'calc' as const, manualPrice: 0 }] }) : d)
   const updateAdditional = (i: number, p: Partial<AdditionalItem>) => setDraft(d => { if (!d) return d; const a = [...d.additionals]; a[i] = { ...a[i], ...p }; return { ...d, additionals: a } })
   const removeAdditional = (i: number) => setDraft(d => d ? ({ ...d, additionals: d.additionals.filter((_, j) => j !== i) }) : d)
   const confirmItem = () => { if (draft) { setItems(p => [...p, draft]); setDraft(null); setWizardStep(null) } }
@@ -142,7 +143,17 @@ export default function NuevoPresupuestoPage() {
   const handleSave = async () => {
     setSaving(true)
     try {
-      const res = await fetch('/api/quotes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, items }) })
+      const payload = {
+        ...form,
+        items: items.map(item => ({
+          ...item,
+          additionals: item.additionals.map(({ priceMode, manualPrice, ...add }) => ({
+            ...add,
+            ...(priceMode === 'fixed' ? { manualPrice } : {}),
+          })),
+        })),
+      }
+      const res = await fetch('/api/quotes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
       if (res.ok) { const q = await res.json(); router.push(`/presupuestos/${q.id}`) }
     } finally { setSaving(false) }
   }
@@ -642,30 +653,59 @@ export default function NuevoPresupuestoPage() {
                         </div>
                       )}
                       {draft.additionals.map((add, aIdx) => (
-                        <div key={aIdx} className="grid grid-cols-12 gap-4 items-end bg-slate-50 rounded-xl px-5 py-4 border border-slate-100">
-                          <div className="col-span-3">
-                            <label className={lbl}>Descripción</label>
-                            <input className={inp} placeholder="Ej: Tacho de basura" value={add.description} onChange={e => updateAdditional(aIdx, { description: e.target.value })} />
+                        <div key={aIdx} className="bg-slate-50 rounded-xl px-5 py-4 border border-slate-100 space-y-3">
+                          {/* Mode toggle */}
+                          <div className="flex gap-2">
+                            {(['calc', 'fixed'] as const).map(mode => (
+                              <button key={mode} type="button" onClick={() => updateAdditional(aIdx, { priceMode: mode })}
+                                style={{ flex: 1, height: '1.875rem', fontSize: '0.75rem', fontWeight: 600, borderRadius: '0.625rem', border: '1.5px solid', cursor: 'pointer', transition: 'all 0.15s',
+                                  background: add.priceMode === mode ? '#198e85' : 'white',
+                                  borderColor: add.priceMode === mode ? '#198e85' : '#e2e8f0',
+                                  color: add.priceMode === mode ? 'white' : '#94a3b8' }}>
+                                {mode === 'calc' ? 'Material × cant.' : 'Precio fijo'}
+                              </button>
+                            ))}
                           </div>
-                          <div className="col-span-5">
-                            <label className={lbl}>Material / Ítem</label>
-                            <MaterialCombobox options={additionalMats} value={add.materialId} onChange={(v: string) => updateAdditional(aIdx, { materialId: v })} className={sel} section="ADICIONALES" onCreated={refreshMaterials} />
-                          </div>
-                          <div className="col-span-2">
-                            <label className={lbl}>Cantidad</label>
-                            <input type="number" min={1} className={numInp} value={add.quantity} onChange={e => updateAdditional(aIdx, { quantity: parseInt(e.target.value) || 1 })} />
-                          </div>
-                          <div className="col-span-1 flex flex-col items-center gap-1">
-                            <label className={lbl + ' text-center'}>Precio</label>
-                            <button
-                              onClick={() => updateAdditional(aIdx, { showPrice: !add.showPrice })}
-                              title={add.showPrice ? 'Precio visible en PDF' : 'Precio oculto en PDF'}
-                              style={{ width: 30, height: 30, borderRadius: '0.5rem', background: 'none', border: '1.5px solid', borderColor: add.showPrice ? '#198e85' : '#e2e8f0', color: add.showPrice ? '#198e85' : '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
-                              {add.showPrice ? <EyeIcon size={14} /> : <EyeOffIcon size={14} />}
-                            </button>
-                          </div>
-                          <div className="col-span-1 flex justify-end items-end">
-                            <button onClick={() => removeAdditional(aIdx)} className={btnDanger}>×</button>
+                          <div className="grid grid-cols-12 gap-4 items-end">
+                            <div className="col-span-3">
+                              <label className={lbl}>Descripción</label>
+                              <input className={inp} placeholder="Ej: Tacho de basura" value={add.description} onChange={e => updateAdditional(aIdx, { description: e.target.value })} />
+                            </div>
+                            {add.priceMode === 'calc' ? (
+                              <>
+                                <div className="col-span-5">
+                                  <label className={lbl}>Material / Ítem</label>
+                                  <MaterialCombobox options={additionalMats} value={add.materialId} onChange={(v: string) => updateAdditional(aIdx, { materialId: v })} className={sel} section="ADICIONALES" onCreated={refreshMaterials} />
+                                </div>
+                                <div className="col-span-2">
+                                  <label className={lbl}>Cantidad</label>
+                                  <input type="number" min={1} className={numInp} value={add.quantity} onChange={e => updateAdditional(aIdx, { quantity: parseInt(e.target.value) || 1 })} />
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <div className="col-span-4">
+                                  <label className={lbl}>Material (opcional)</label>
+                                  <MaterialCombobox options={additionalMats} value={add.materialId} onChange={(v: string) => updateAdditional(aIdx, { materialId: v })} className={sel} section="ADICIONALES" onCreated={refreshMaterials} />
+                                </div>
+                                <div className="col-span-3">
+                                  <label className={lbl}>Precio total $</label>
+                                  <input type="number" min={0} className={numInp} placeholder="0.00" value={add.manualPrice || ''} onChange={e => updateAdditional(aIdx, { manualPrice: parseFloat(e.target.value) || 0 })} />
+                                </div>
+                              </>
+                            )}
+                            <div className="col-span-1 flex flex-col items-center gap-1">
+                              <label className={lbl + ' text-center'}>PDF</label>
+                              <button
+                                onClick={() => updateAdditional(aIdx, { showPrice: !add.showPrice })}
+                                title={add.showPrice ? 'Precio visible en PDF' : 'Precio oculto en PDF'}
+                                style={{ width: 30, height: 30, borderRadius: '0.5rem', background: 'none', border: '1.5px solid', borderColor: add.showPrice ? '#198e85' : '#e2e8f0', color: add.showPrice ? '#198e85' : '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
+                                {add.showPrice ? <EyeIcon size={14} /> : <EyeOffIcon size={14} />}
+                              </button>
+                            </div>
+                            <div className="col-span-1 flex justify-end items-end">
+                              <button onClick={() => removeAdditional(aIdx)} className={btnDanger}>×</button>
+                            </div>
                           </div>
                         </div>
                       ))}
