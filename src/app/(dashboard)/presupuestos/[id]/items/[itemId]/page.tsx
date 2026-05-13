@@ -23,7 +23,9 @@ function MatCombo({ options, value, onChange, placeholder, section, onCreated }:
 }) {
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
+  const [dropPos, setDropPos] = useState<{ top: number; left: number; width: number } | null>(null)
   const ref = useRef<HTMLDivElement>(null)
+  const dropRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const selected = options.find(m => m.id === value)
   const filtered = q ? options.filter(m => m.name.toLowerCase().includes(q.toLowerCase())) : options
@@ -36,10 +38,22 @@ function MatCombo({ options, value, onChange, placeholder, section, onCreated }:
   const [createSaving, setCreateSaving] = useState(false)
 
   useEffect(() => {
-    const handle = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) { setOpen(false); setQ('') } }
+    const handle = (e: MouseEvent) => {
+      const t = e.target as Node
+      if (ref.current?.contains(t) || dropRef.current?.contains(t)) return
+      setOpen(false); setQ('')
+    }
     if (open) { document.addEventListener('mousedown', handle); setTimeout(() => inputRef.current?.focus(), 10) }
     return () => document.removeEventListener('mousedown', handle)
   }, [open])
+
+  function handleOpen() {
+    if (!open && ref.current) {
+      const r = ref.current.getBoundingClientRect()
+      setDropPos({ top: r.bottom + 4, left: r.left, width: r.width })
+    }
+    setOpen(o => !o)
+  }
 
   async function openCreate() {
     setCreateName(q); setCreateCost(''); setOpen(false); setQ('')
@@ -67,12 +81,12 @@ function MatCombo({ options, value, onChange, placeholder, section, onCreated }:
   return (
     <>
       <div ref={ref} style={{ position: 'relative' }}>
-        <button type="button" className="form-select" style={{ textAlign: 'left', display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }} onClick={() => setOpen(o => !o)}>
+        <button type="button" className="form-select" style={{ textAlign: 'left', display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }} onClick={handleOpen}>
           <span style={{ color: selected ? undefined : 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selected ? selected.name : (placeholder ?? 'Seleccionar…')}</span>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ flexShrink: 0, marginLeft: 4, opacity: 0.4 }}><path d="M6 9l6 6 6-6"/></svg>
         </button>
-        {open && (
-          <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 200, background: 'white', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', boxShadow: '0 8px 32px rgba(0,0,0,0.12)', overflow: 'hidden' }}>
+        {open && dropPos && (
+          <div ref={dropRef} style={{ position: 'fixed', top: dropPos.top, left: dropPos.left, width: dropPos.width, zIndex: 9999, background: 'white', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', boxShadow: '0 8px 32px rgba(0,0,0,0.12)', overflow: 'hidden' }}>
             <div style={{ padding: '0.5rem', borderBottom: '1px solid var(--border-light)' }}>
               <input ref={inputRef} style={{ width: '100%', height: '2rem', padding: '0 0.625rem', fontSize: '0.8125rem', color: 'var(--text)', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '0.5rem', outline: 'none', boxSizing: 'border-box' }} placeholder="Buscar…" value={q} onChange={e => setQ(e.target.value)} />
             </div>

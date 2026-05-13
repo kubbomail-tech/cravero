@@ -31,6 +31,8 @@ interface FurnitureItem {
 // Secondary btn: bg-slate-900 text-white
 // Accent:  indigo-600
 
+const DRAFT_KEY = 'cravero:nuevo-presu-draft'
+
 export default function NuevoPresupuestoPage() {
   const router = useRouter()
   const [saving, setSaving] = useState(false)
@@ -52,6 +54,9 @@ export default function NuevoPresupuestoPage() {
   const [wizardStep, setWizardStep] = useState<WizardStep | null>(null)
   const [draft, setDraft] = useState<FurnitureItem | null>(null)
   const [started, setStarted] = useState(false)
+  const [draftRestored, setDraftRestored] = useState(false)
+  const [autoSaveTs, setAutoSaveTs] = useState<Date | null>(null)
+  const loadedRef = useRef(false)
 
   const refreshMaterials = () => fetch('/api/materials?isActive=true').then(r => r.json()).then(setMaterials)
 
@@ -59,8 +64,45 @@ export default function NuevoPresupuestoPage() {
     Promise.all([
       fetch('/api/materials?isActive=true').then(r => r.json()),
       fetch('/api/furniture-types').then(r => r.json()),
-    ]).then(([m, f]) => { setMaterials(m); setFurnitureTypes(f) })
+      fetch('/api/settings?key=default_notes').then(r => r.json()),
+    ]).then(([m, f, s]) => {
+      setMaterials(m)
+      setFurnitureTypes(f)
+      const saved = localStorage.getItem(DRAFT_KEY)
+      if (saved) {
+        try {
+          const d = JSON.parse(saved)
+          setForm(d.form)
+          setItems(d.items ?? [])
+          setStarted(d.started ?? false)
+          setDraft(d.draft ?? null)
+          setWizardStep(d.wizardStep ?? null)
+          setDraftRestored(true)
+        } catch { localStorage.removeItem(DRAFT_KEY) }
+      } else {
+        if (s.value) setForm(prev => ({ ...prev, notes: s.value }))
+      }
+      setTimeout(() => { loadedRef.current = true }, 200)
+    })
   }, [])
+
+  // Auto-save to localStorage whenever state changes (after initial load)
+  useEffect(() => {
+    if (!loadedRef.current) return
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({ form, items, started, draft, wizardStep }))
+    setAutoSaveTs(new Date())
+  }, [form, items, started, draft, wizardStep])
+
+  const discardDraft = () => {
+    localStorage.removeItem(DRAFT_KEY)
+    setDraftRestored(false)
+    setForm({ clientId: '', clientName: '', issueDate: new Date().toISOString().split('T')[0], expirationDate: '', laborPercentage: 30, vatPercentage: 21, discountAmount: 0, paymentTerms: '', notes: '' })
+    setItems([])
+    setStarted(false)
+    setDraft(null)
+    setWizardStep(null)
+    setAutoSaveTs(null)
+  }
 
   useEffect(() => {
     if (clientSearch.length > 1)
@@ -115,7 +157,7 @@ export default function NuevoPresupuestoPage() {
     setDraft({ furnitureTypeId: ft.id, name: ft.name, description: '', quantity: 1, cuts: [], accessories: [], additionals: [] })
     setWizardStep('cuts')
   }
-  const addCut = () => setDraft(d => d ? ({ ...d, cuts: [...d.cuts, { materialId: '', description: 'Pieza nueva', width: 0, height: 0, quantity: 1, edgeBandMaterialId: '', showInPdf: true, edgeBands: [] }] }) : d)
+  const addCut = () => setDraft(d => d ? ({ ...d, cuts: [...d.cuts, { materialId: '', description: 'Pieza nueva', width: 0, height: 0, quantity: 1, edgeBandMaterialId: '', showInPdf: false, edgeBands: [] }] }) : d)
   const updateCut = (i: number, p: Partial<CutItem>) => setDraft(d => { if (!d) return d; const c = [...d.cuts]; c[i] = { ...c[i], ...p }; return { ...d, cuts: c } })
   const removeCut = (i: number) => setDraft(d => d ? ({ ...d, cuts: d.cuts.filter((_, j) => j !== i) }) : d)
   const toggleEdge = (cIdx: number, side: string) => {
@@ -154,7 +196,11 @@ export default function NuevoPresupuestoPage() {
         })),
       }
       const res = await fetch('/api/quotes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-      if (res.ok) { const q = await res.json(); router.push(`/presupuestos/${q.id}`) }
+      if (res.ok) {
+        localStorage.removeItem(DRAFT_KEY)
+        const q = await res.json()
+        router.push(`/presupuestos/${q.id}`)
+      }
     } finally { setSaving(false) }
   }
 
@@ -185,7 +231,20 @@ export default function NuevoPresupuestoPage() {
           <h1 className="page-title">Nuevo presupuesto</h1>
           <p className="page-subtitle">Completá los datos generales para comenzar</p>
         </div>
+        {autoSaveTs && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', color: '#64748b' }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} />
+            Borrador guardado
+          </div>
+        )}
       </div>
+
+      {draftRestored && (
+        <div style={{ marginBottom: '1rem', padding: '10px 16px', background: '#fefce8', border: '1px solid #fde68a', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.8125rem' }}>
+          <span style={{ color: '#92400e', fontWeight: 600 }}>📋 Borrador restaurado — continuás desde donde lo dejaste.</span>
+          <button onClick={discardDraft} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#b45309', fontWeight: 700, fontSize: '0.75rem', textDecoration: 'underline' }}>Descartar y empezar de cero</button>
+        </div>
+      )}
 
       <div className="max-w-2xl mx-auto">
         <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
@@ -289,7 +348,15 @@ export default function NuevoPresupuestoPage() {
       <div className="page-header">
         <div>
           <h1 className="page-title">Nuevo presupuesto</h1>
-          <p className="page-subtitle">Definición de cotización y variables generales</p>
+          <p className="page-subtitle" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            Definición de cotización y variables generales
+            {autoSaveTs && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.7rem', color: '#22c55e', fontWeight: 600 }}>
+                <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} />
+                Borrador guardado
+              </span>
+            )}
+          </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
           <div style={{ textAlign: 'right' }}>
@@ -488,78 +555,62 @@ export default function NuevoPresupuestoPage() {
                       )}
 
                       {draft.cuts.map((cut, cIdx) => (
-                        <div key={cIdx} className="px-10 py-8 space-y-6 hover:bg-slate-50/30 transition-colors">
-                          <div className="flex items-center justify-between mb-2">
-                             <span className="px-3 py-1 bg-slate-100 rounded-lg text-[10px] font-black text-slate-500 uppercase tracking-widest">Pieza #{cIdx + 1}</span>
-                             <div className="flex items-center gap-4">
-                               <button type="button" onClick={() => updateCut(cIdx, { showInPdf: !cut.showInPdf })}
-                                 title={cut.showInPdf ? 'Visible en PDF' : 'Oculto en PDF'}
-                                 style={{ width: 30, height: 30, borderRadius: '0.5rem', background: 'none', border: '1.5px solid', borderColor: cut.showInPdf ? '#198e85' : '#e2e8f0', color: cut.showInPdf ? '#198e85' : '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s' }}>
-                                 {cut.showInPdf ? <EyeIcon size={14} /> : <EyeOffIcon size={14} />}
-                               </button>
-                               <button onClick={() => removeCut(cIdx)} className="text-xs font-bold text-red-300 hover:text-red-500 transition-colors flex items-center gap-1">
-                                 Eliminar pieza ✕
-                               </button>
-                             </div>
-                          </div>
-                          
-                          <div className="grid grid-cols-12 gap-6 items-end">
-                            <div className="col-span-12 lg:col-span-6">
-                              <label className={lbl}>Descripción de la pieza</label>
-                              <input className={inp} placeholder="Ej: Lateral izquierdo, Estante..." value={cut.description}
+                        <div key={cIdx} className="px-6 py-3 border-b border-slate-100 last:border-b-0 hover:bg-slate-50/40 transition-colors">
+                          {/* Row 1: main fields */}
+                          <div className="grid grid-cols-12 gap-2 items-end">
+                            <div className="col-span-4">
+                              <label className={lbl}><span className="text-slate-400 font-black">#{cIdx + 1}</span> Descripción</label>
+                              <input className={inp} placeholder="Lateral, Estante…" value={cut.description}
                                 onChange={e => updateCut(cIdx, { description: e.target.value })} />
                             </div>
-                            <div className="col-span-12 lg:col-span-4">
+                            <div className="col-span-4">
                               <label className={lbl}>Material / Placa</label>
-                              <MaterialCombobox options={placaMats} value={cut.materialId} onChange={(v: string) => updateCut(cIdx, { materialId: v })} placeholder="Seleccionar material…" className={sel} section="CORTES" onCreated={refreshMaterials} />
+                              <MaterialCombobox options={placaMats} value={cut.materialId} onChange={(v: string) => updateCut(cIdx, { materialId: v })} placeholder="Seleccionar…" className={sel} section="CORTES" onCreated={refreshMaterials} />
                             </div>
-                            <div className="col-span-12 lg:col-span-2">
-                              <label className={lbl}>Cantidad</label>
-                              <div className="relative">
-                                <input type="number" min={1}
-                                  className="w-full h-11 px-4 text-sm font-black text-[#198e85] bg-white border border-slate-200 rounded-xl outline-none focus:border-[#198e85] transition-all text-center"
-                                  value={cut.quantity}
-                                  onChange={e => updateCut(cIdx, { quantity: parseInt(e.target.value) || 1 })} />
-                              </div>
+                            <div className="col-span-1">
+                              <label className={lbl}>Cant.</label>
+                              <input type="number" min={1} className={numInp} value={cut.quantity}
+                                onChange={e => updateCut(cIdx, { quantity: parseInt(e.target.value) || 1 })} />
                             </div>
-                          </div>
-
-                          <div className="grid grid-cols-12 gap-6 items-end p-6 bg-slate-50 border border-slate-100 rounded-2xl">
-                            <div className="col-span-12 lg:col-span-2">
-                              <label className={lbl}>Ancho (mm)</label>
+                            <div className="col-span-1">
+                              <label className={lbl}>Ancho</label>
                               <input type="number" className={numInp} placeholder="0" value={cut.width || ''}
                                 onChange={e => updateCut(cIdx, { width: parseFloat(e.target.value) || 0 })} />
                             </div>
-                            <div className="col-span-12 lg:col-span-2">
-                              <label className={lbl}>Alto (mm)</label>
+                            <div className="col-span-1">
+                              <label className={lbl}>Alto</label>
                               <input type="number" className={numInp} placeholder="0" value={cut.height || ''}
                                 onChange={e => updateCut(cIdx, { height: parseFloat(e.target.value) || 0 })} />
                             </div>
-                            <div className="col-span-12 lg:col-span-5">
-                              <label className={lbl}>Cantos (Lados a cubrir)</label>
-                              <div className="flex gap-2">
-                                {[['TOP','Sup'],['BOTTOM','Inf'],['LEFT','Izq'],['RIGHT','Der']].map(([side, label]) => (
-                                  <button key={side} onClick={() => toggleEdge(cIdx, side)}
-                                    className={sideBtn(cut.edgeBands.some(eb => eb.side === side))}>
-                                    {label}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                            <div className="col-span-12 lg:col-span-3">
-                              <label className={lbl} style={cut.edgeBands.length > 0 && !cut.edgeBandMaterialId ? { color: '#ef4444' } : {}}>
-                                Material de canto {cut.edgeBands.length > 0 && !cut.edgeBandMaterialId ? '⚠ requerido' : ''}
-                              </label>
-                              <MaterialCombobox options={cantoMats} value={cut.edgeBandMaterialId} onChange={(v: string) => setEdgeMat(cIdx, v)} placeholder="Sin canteado" className={sel} hasError={cut.edgeBands.length > 0 && !cut.edgeBandMaterialId} section="CANTO" onCreated={refreshMaterials} />
+                            <div className="col-span-1 flex flex-col justify-end">
+                              <span className="text-[10px] font-bold text-slate-400 tabular-nums">{((cut.width * cut.height) / 1e6 * cut.quantity).toFixed(3)} m²</span>
+                              <span className="text-xs font-black text-[#198e85] tabular-nums">{fmt(calcCut(cut))}</span>
                             </div>
                           </div>
-                          
-                          <div className="flex justify-end pt-2">
-                             <div className="flex items-center gap-4">
-                                <span className="text-[11px] font-bold text-slate-400 tabular-nums uppercase">{((cut.width * cut.height) / 1e6 * cut.quantity).toFixed(2)} m² totales</span>
-                                <div className="h-4 w-px bg-slate-200" />
-                                <span className="text-sm font-black text-[#198e85] tabular-nums">Costo: {fmt(calcCut(cut))}</span>
-                             </div>
+                          {/* Row 2: cantos */}
+                          <div className="grid grid-cols-12 gap-2 items-center mt-2">
+                            <div className="col-span-1">
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Cantos</span>
+                            </div>
+                            <div className="col-span-3 flex gap-2">
+                              {[['TOP','Sup'],['BOTTOM','Inf'],['LEFT','Izq'],['RIGHT','Der']].map(([side, label]) => (
+                                <button key={side} onClick={() => toggleEdge(cIdx, side)}
+                                  className={sideBtn(cut.edgeBands.some(eb => eb.side === side))}
+                                  style={{ flex: 1 }}>
+                                  {label}
+                                </button>
+                              ))}
+                            </div>
+                            <div className="col-span-4">
+                              <MaterialCombobox options={cantoMats} value={cut.edgeBandMaterialId} onChange={(v: string) => setEdgeMat(cIdx, v)}
+                                placeholder="Material de canto…"
+                                className={sel} hasError={cut.edgeBands.length > 0 && !cut.edgeBandMaterialId} section="CANTO" onCreated={refreshMaterials} />
+                            </div>
+                            <div className="col-span-4 flex justify-end">
+                              <button onClick={() => removeCut(cIdx)} className="text-xs font-bold text-red-300 hover:text-red-500 transition-colors flex items-center gap-1">
+                                Eliminar pieza ✕
+                              </button>
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -877,7 +928,9 @@ function MaterialCombobox({ options, value, onChange, placeholder, className, ha
 }) {
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
+  const [dropPos, setDropPos] = useState<{ top: number; left: number; width: number } | null>(null)
   const ref = useRef<HTMLDivElement>(null)
+  const dropRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const selected = options.find(m => m.id === value)
   const filtered = q ? options.filter(m => m.name.toLowerCase().includes(q.toLowerCase())) : options
@@ -891,11 +944,21 @@ function MaterialCombobox({ options, value, onChange, placeholder, className, ha
 
   useEffect(() => {
     function handle(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) { setOpen(false); setQ('') }
+      const t = e.target as Node
+      if (ref.current?.contains(t) || dropRef.current?.contains(t)) return
+      setOpen(false); setQ('')
     }
     if (open) { document.addEventListener('mousedown', handle); setTimeout(() => inputRef.current?.focus(), 10) }
     return () => document.removeEventListener('mousedown', handle)
   }, [open])
+
+  function handleOpen() {
+    if (!open && ref.current) {
+      const r = ref.current.getBoundingClientRect()
+      setDropPos({ top: r.bottom + 4, left: r.left, width: r.width })
+    }
+    setOpen(o => !o)
+  }
 
   async function openCreate() {
     setCreateName(q); setCreateCost(''); setOpen(false); setQ('')
@@ -930,7 +993,7 @@ function MaterialCombobox({ options, value, onChange, placeholder, className, ha
             textAlign: 'left', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             ...(hasError ? { borderColor: '#ef4444' } : {}),
           }}
-          onClick={() => setOpen(o => !o)}
+          onClick={handleOpen}
         >
           <span style={{ color: selected ? undefined : '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {selected ? selected.name : (placeholder ?? 'Seleccionar…')}
@@ -938,9 +1001,9 @@ function MaterialCombobox({ options, value, onChange, placeholder, className, ha
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ flexShrink: 0, marginLeft: 4, opacity: 0.4 }}><path d="M6 9l6 6 6-6"/></svg>
         </button>
 
-        {open && (
-          <div style={{
-            position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 200,
+        {open && dropPos && (
+          <div ref={dropRef} style={{
+            position: 'fixed', top: dropPos.top, left: dropPos.left, width: dropPos.width, zIndex: 9999,
             background: 'white', border: '1px solid #e2e8f0', borderRadius: '0.875rem',
             boxShadow: '0 8px 32px rgba(0,0,0,0.12)', overflow: 'hidden',
           }}>
