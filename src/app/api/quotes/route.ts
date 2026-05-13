@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
 
           return {
             side: eb.side,
-            materialId: eb.materialId,
+            materialId: eb.materialId || null,
             materialNameSnapshot: eMat?.name,
             materialUnitCostSnapshot: eUnitCost,
             length,
@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
         })
 
         return {
-          materialId: cut.materialId,
+          materialId: cut.materialId || null,
           materialNameSnapshot: mat?.name,
           materialUnitCostSnapshot: unitCost,
           description: cut.description,
@@ -129,7 +129,7 @@ export async function POST(req: NextRequest) {
         itemSubtotalHardware += subtotalCost
 
         return {
-          materialId: acc.materialId,
+          materialId: acc.materialId || null,
           materialNameSnapshot: mat?.name,
           materialUnitCostSnapshot: unitCost,
           description: acc.description,
@@ -147,7 +147,7 @@ export async function POST(req: NextRequest) {
         itemSubtotalAdditionals += subtotalCost
 
         return {
-          materialId: add.materialId,
+          materialId: add.materialId || null,
           materialNameSnapshot: mat?.name,
           materialUnitCostSnapshot: unitCost,
           description: add.description,
