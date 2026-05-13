@@ -375,7 +375,14 @@
 }
 
 .form-select {
-  padding-right: 3rem;
+  padding-right: 2.25rem;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.6rem center;
+  background-size: 16px;
+  cursor: pointer;
 }
 
 .form-input::placeholder, .form-textarea::placeholder { color: var(--text-subtle); }
@@ -889,3 +896,8 @@ tbody tr:hover td { background: var(--primary-50); }
   .modal { width: 100%; max-width: 100%; margin: 0; border-radius: 1.5rem 1.5rem 0 0; position: fixed; bottom: 0; left: 0; right: 0; max-height: 90vh; overflow-y: auto; }
   .modal-overlay { align-items: flex-end; }
 }
+
+/* Hide number input spinners globally */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+input[type=number] { -moz-appearance: textfield; }

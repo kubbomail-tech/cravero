@@ -99,6 +99,7 @@ export const quoteItemSchema = z.object({
 
 export const quoteSchema = z.object({
   clientId: z.string().min(1, 'El cliente es requerido'),
+  title: z.string().optional(),
   issueDate: z.string().min(1, 'La fecha es requerida'),
   expirationDate: z.string().optional().or(z.literal('')),
   laborPercentage: z.coerce.number().min(0).default(30),

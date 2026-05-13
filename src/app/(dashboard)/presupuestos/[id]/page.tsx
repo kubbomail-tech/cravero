@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { toNumber } from '@/lib/calculations'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -24,6 +25,10 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
   const [notes, setNotes] = useState('')
   const [savingNotes, setSavingNotes] = useState(false)
   const [notesSaved, setNotesSaved] = useState(false)
+  const [showEdit, setShowEdit] = useState(false)
+  const [editForm, setEditForm] = useState<any>({})
+  const [savingEdit, setSavingEdit] = useState(false)
+  const searchParams = useSearchParams()
 
 
 
@@ -40,8 +45,18 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
       const q = await qRes.json()
       setQuote(q)
       setNotes(q.notes ?? '')
+      setEditForm({
+        title: q.title ?? '',
+        issueDate: q.issueDate?.split('T')[0] ?? '',
+        expirationDate: q.expirationDate?.split('T')[0] ?? '',
+        laborPercentage: parseFloat(q.laborPercentage),
+        vatPercentage: parseFloat(q.vatPercentage),
+        discountAmount: parseFloat(q.discountAmount),
+        paymentTerms: q.paymentTerms ?? '',
+      })
       setFurnitureTypes(await ftRes.json())
       setLoading(false)
+      if (searchParams.get('edit') === '1') setShowEdit(true)
     }
     fetchData()
   }, [id])
@@ -83,6 +98,23 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
     } finally {
       setSavingItem(false)
     }
+  }
+
+  async function handleSaveEdit() {
+    if (!id) return
+    setSavingEdit(true)
+    const res = await fetch(`/api/quotes/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(editForm),
+    })
+    if (res.ok) {
+      const q = await fetch(`/api/quotes/${id}`).then(r => r.json())
+      setQuote(q)
+      setNotes(q.notes ?? '')
+      setShowEdit(false)
+    }
+    setSavingEdit(false)
   }
 
   async function handleSaveNotes() {
@@ -139,6 +171,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
             </div>
             <p className="page-subtitle">
               {quote.client.fullName}{quote.client.businessName ? ` · ${quote.client.businessName}` : ''}
+              {quote.title && <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}> · {quote.title}</span>}
             </p>
           </div>
         </div>
@@ -146,6 +179,11 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
           <button className="btn btn-secondary" onClick={handleDownloadPdf} disabled={generatingPdf}>
             {generatingPdf ? <span className="spinner spinner-dark" /> : null} PDF
           </button>
+          {quote.status === 'DRAFT' && (
+            <button className="btn btn-secondary" onClick={() => setShowEdit(true)}>
+              Editar datos
+            </button>
+          )}
           {quote.status === 'DRAFT' && (
             <button className="btn btn-primary" onClick={() => handleStatusChange('ISSUED')} disabled={loading}>
               Emitir
@@ -369,6 +407,66 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                 disabled={savingItem || !newItemForm.furnitureTypeId}
               >
                 {savingItem ? 'Creando...' : 'Agregar al presupuesto'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Editar datos modal */}
+      {showEdit && (
+        <div className="modal-overlay" onClick={() => setShowEdit(false)}>
+          <div className="modal" style={{ maxWidth: 520 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Editar presupuesto</h3>
+              <button className="btn btn-ghost btn-sm" onClick={() => setShowEdit(false)}>×</button>
+            </div>
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div className="form-group">
+                <label className="form-label">Nombre del trabajo</label>
+                <input className="form-input" placeholder="Ej: Amoblamiento vestidor y 2 baños…"
+                  value={editForm.title} onChange={e => setEditForm((f: any) => ({ ...f, title: e.target.value }))} />
+              </div>
+              <div className="form-grid-2">
+                <div className="form-group">
+                  <label className="form-label">Fecha de emisión</label>
+                  <input type="date" className="form-input" value={editForm.issueDate}
+                    onChange={e => setEditForm((f: any) => ({ ...f, issueDate: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Fecha de vencimiento</label>
+                  <input type="date" className="form-input" value={editForm.expirationDate}
+                    onChange={e => setEditForm((f: any) => ({ ...f, expirationDate: e.target.value }))} />
+                </div>
+              </div>
+              <div className="form-grid-2">
+                <div className="form-group">
+                  <label className="form-label">Mano de obra (%)</label>
+                  <input type="number" className="form-input" value={editForm.laborPercentage}
+                    onChange={e => setEditForm((f: any) => ({ ...f, laborPercentage: parseFloat(e.target.value) || 0 }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">IVA (%)</label>
+                  <input type="number" className="form-input" value={editForm.vatPercentage}
+                    onChange={e => setEditForm((f: any) => ({ ...f, vatPercentage: parseFloat(e.target.value) || 0 }))} />
+                </div>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Descuento (%)</label>
+                <input type="number" className="form-input" style={{ maxWidth: 160 }} value={editForm.discountAmount}
+                  onChange={e => setEditForm((f: any) => ({ ...f, discountAmount: parseFloat(e.target.value) || 0 }))} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Formas de pago</label>
+                <textarea className="form-textarea" rows={3} placeholder="Opciones de pago…"
+                  value={editForm.paymentTerms}
+                  onChange={e => setEditForm((f: any) => ({ ...f, paymentTerms: e.target.value }))} />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setShowEdit(false)}>Cancelar</button>
+              <button className="btn btn-primary" onClick={handleSaveEdit} disabled={savingEdit}>
+                {savingEdit ? 'Guardando...' : 'Guardar cambios'}
               </button>
             </div>
           </div>

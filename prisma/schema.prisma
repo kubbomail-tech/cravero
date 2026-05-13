@@ -195,6 +195,7 @@ model PriceUpdateBatchItem {
 model Quote {
   id               String      @id @default(cuid())
   quoteNumber      String      @unique @map("quote_number")
+  title            String?
   clientId         String      @map("client_id")
   status           QuoteStatus @default(DRAFT)
   issueDate        DateTime    @map("issue_date")

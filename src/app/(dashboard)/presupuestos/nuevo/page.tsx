@@ -39,11 +39,13 @@ export default function NuevoPresupuestoPage() {
 
   const [form, setForm] = useState({
     clientId: '', clientName: '',
+    title: '',
     issueDate: new Date().toISOString().split('T')[0],
     expirationDate: '',
     laborPercentage: 30, vatPercentage: 21, discountAmount: 0,
     paymentTerms: '', notes: '',
   })
+  const [saveError, setSaveError] = useState('')
 
   const [materials, setMaterials] = useState<Material[]>([])
   const [furnitureTypes, setFurnitureTypes] = useState<FurnitureType[]>([])
@@ -96,7 +98,7 @@ export default function NuevoPresupuestoPage() {
   const discardDraft = () => {
     localStorage.removeItem(DRAFT_KEY)
     setDraftRestored(false)
-    setForm({ clientId: '', clientName: '', issueDate: new Date().toISOString().split('T')[0], expirationDate: '', laborPercentage: 30, vatPercentage: 21, discountAmount: 0, paymentTerms: '', notes: '' })
+    setForm({ clientId: '', clientName: '', title: '', issueDate: new Date().toISOString().split('T')[0], expirationDate: '', laborPercentage: 30, vatPercentage: 21, discountAmount: 0, paymentTerms: '', notes: '' })
     setItems([])
     setStarted(false)
     setDraft(null)
@@ -184,11 +186,16 @@ export default function NuevoPresupuestoPage() {
 
   const handleSave = async () => {
     setSaving(true)
+    setSaveError('')
     try {
       const payload = {
         ...form,
-        items: items.map(item => ({
+        items: items.map(({ name: _name, ...item }) => ({
           ...item,
+          cuts: item.cuts.map(({ edgeBandMaterialId: _ebm, showInPdf, ...cut }) => ({
+            ...cut,
+            showInPdf,
+          })),
           additionals: item.additionals.map(({ priceMode, manualPrice, ...add }) => ({
             ...add,
             ...(priceMode === 'fixed' ? { manualPrice } : {}),
@@ -200,7 +207,12 @@ export default function NuevoPresupuestoPage() {
         localStorage.removeItem(DRAFT_KEY)
         const q = await res.json()
         router.push(`/presupuestos/${q.id}`)
+      } else {
+        const err = await res.json().catch(() => ({}))
+        setSaveError(err?.error ? JSON.stringify(err.error).substring(0, 200) : `Error ${res.status} al guardar`)
       }
+    } catch {
+      setSaveError('Error de conexión. Verificá tu red e intentá de nuevo.')
     } finally { setSaving(false) }
   }
 
@@ -213,7 +225,7 @@ export default function NuevoPresupuestoPage() {
   const lbl = 'block text-[10px] font-bold text-slate-500 uppercase tracking-[0.1em] mb-2 ml-1'
   const inp = 'w-full h-10 px-3 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-[#198e85]/10 focus:border-[#198e85] transition-all placeholder:text-slate-300 shadow-sm'
   const sel = 'w-full h-10 px-3 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-xl outline-none focus:border-[#198e85] transition-all cursor-pointer'
-  const numInp = 'w-full h-12 px-4 text-lg font-black text-slate-900 text-center bg-white border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-[#198e85]/10 focus:border-[#198e85] transition-all shadow-sm'
+  const numInp = 'w-full h-10 px-1 text-base font-black text-slate-900 text-center bg-white border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-[#198e85]/10 focus:border-[#198e85] transition-all shadow-sm'
   const sideBtn = (active: boolean) => `flex-1 h-11 text-[10px] font-black uppercase tracking-wider rounded-xl border-2 transition-all ${active ? 'bg-[#198e85] border-[#198e85] text-white shadow-lg shadow-[#ccf2ef]' : 'bg-white border-slate-100 text-slate-400 hover:border-[#80d4d0] hover:text-[#198e85]'}`
   const btnPrimary = 'h-12 px-10 bg-[#198e85] text-white text-sm font-bold rounded-full hover:bg-[#136e67] active:scale-95 transition-all shadow-lg shadow-[#ccf2ef] disabled:opacity-40 disabled:grayscale'
   const btnDark = 'h-12 px-10 bg-slate-900 text-white text-sm font-bold rounded-full hover:bg-slate-800 active:scale-95 transition-all shadow-lg shadow-slate-200'
@@ -282,6 +294,13 @@ export default function NuevoPresupuestoPage() {
                 <p className="text-sm font-semibold text-[#0d5e59] truncate">{form.clientName}</p>
               </div>
             )}
+          </div>
+
+          {/* Título */}
+          <div className="px-6 py-3 border-b border-slate-50">
+            <p className={lbl}>Nombre del trabajo <span className="normal-case font-normal text-slate-300">(opcional)</span></p>
+            <input className={inp} placeholder="Ej: Amoblamiento vestidor y 2 baños…"
+              value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
           </div>
 
           {/* Fechas + Variables en una fila */}
@@ -369,6 +388,12 @@ export default function NuevoPresupuestoPage() {
         </div>
       </div>
 
+      {saveError && (
+        <div style={{ marginBottom: '1rem', padding: '10px 16px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, fontSize: '0.8125rem', color: '#b91c1c', fontWeight: 500 }}>
+          ⚠ {saveError}
+        </div>
+      )}
+
       <div style={{ display: 'grid', gridTemplateColumns: '268px 1fr', gap: '1.5rem', alignItems: 'start' }}>
 
         {/* ── SIDEBAR ─────────────────────────────────────────────────────── */}
@@ -406,6 +431,13 @@ export default function NuevoPresupuestoPage() {
                 <p className="text-sm font-semibold text-[#0d5e59] truncate">{form.clientName}</p>
               </div>
             )}
+          </section>
+
+          {/* Nombre del trabajo */}
+          <section className="bg-white border border-slate-100 rounded-2xl shadow-sm p-6">
+            <p className={lbl}>Nombre del trabajo <span className="normal-case font-normal text-slate-300">(opcional)</span></p>
+            <input className={inp} placeholder="Ej: Amoblamiento vestidor…"
+              value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
           </section>
 
           {/* Fechas */}

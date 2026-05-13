@@ -111,6 +111,16 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
 
   y -= 86
 
+  // Title block
+  if (quote.title) {
+    checkSpace(28)
+    y -= 6
+    page.drawRectangle({ x: 36, y: y - 22, width: W - 72, height: 26, color: rgb(0.94, 0.97, 0.97) })
+    page.drawText('TIPO DE AMOBLAMIENTO:', { x: 48, y: y - 8, size: 6.5, font: fontBold, color: MUTED })
+    page.drawText(quote.title.toUpperCase(), { x: 48, y: y - 18, size: 9, font: fontBold, color: TEXT })
+    y -= 30
+  }
+
   // Notes — between client block and items
   if (quote.notes) {
     checkSpace(44)

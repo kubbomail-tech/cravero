@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 type Quote = {
   id: string
   quoteNumber: string
+  title?: string
   status: string
   issueDate: string
   expirationDate?: string
@@ -89,7 +90,7 @@ export default function PresupuestosPage() {
           <SearchIcon />
           <input placeholder="Buscar por número o cliente..." value={search} onChange={e => setSearch(e.target.value)} />
         </div>
-        <select className="form-select" style={{ width: 180 }} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+        <select className="form-select" style={{ width: 210 }} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
           <option value="">Todos los estados</option>
           {Object.entries(statusMap).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
@@ -121,6 +122,7 @@ export default function PresupuestosPage() {
               <tr key={q.id}>
                 <td>
                   <span style={{ fontWeight: 600, color: 'var(--primary)', fontFamily: 'monospace' }}>{q.quoteNumber}</span>
+                  {q.title && <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 2 }}>{q.title}</div>}
                 </td>
                 <td>
                   <div style={{ fontWeight: 500 }}>{q.client.fullName}</div>
@@ -135,6 +137,9 @@ export default function PresupuestosPage() {
                 <td>
                   <div className="flex gap-1">
                     <Link href={`/presupuestos/${q.id}`} className="btn btn-ghost btn-sm">Ver</Link>
+                    {q.status === 'DRAFT' && (
+                      <Link href={`/presupuestos/${q.id}?edit=1`} className="btn btn-ghost btn-sm">Editar</Link>
+                    )}
                     <button className="btn btn-ghost btn-sm" onClick={() => handleDuplicate(q.id)} title="Duplicar">
                       <CopyIcon />
                     </button>

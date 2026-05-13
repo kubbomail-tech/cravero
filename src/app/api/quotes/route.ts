@@ -184,6 +184,7 @@ export async function POST(req: NextRequest) {
     const quote = await tx.quote.create({
       data: {
         quoteNumber,
+        title: quoteData.title,
         clientId: quoteData.clientId,
         issueDate: new Date(quoteData.issueDate),
         expirationDate: quoteData.expirationDate ? new Date(quoteData.expirationDate) : null,
