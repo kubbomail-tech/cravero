@@ -173,6 +173,13 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
         page.drawText(fmt(cut.subtotalCost), { x: W - 100, y: y - 7, size: 7, font: fontBold, color: TEXT })
         y -= 11
       }
+
+      // Always show materials subtotal
+      const totalCuts = item.cuts.reduce((s: number, c: { subtotalCost: any }) => s + toNumber(c.subtotalCost), 0)
+      checkSpace(11)
+      page.drawText('Total materiales:', { x: 44, y: y - 7, size: 7, font: fontBold, color: MUTED })
+      page.drawText(fmt(totalCuts), { x: W - 100, y: y - 7, size: 7, font: fontBold, color: TEXT })
+      y -= 11
     }
 
     // Accessories — single summary line
