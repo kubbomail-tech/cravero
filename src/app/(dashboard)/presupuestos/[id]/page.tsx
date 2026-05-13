@@ -21,6 +21,9 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
   const [generatingPdf, setGeneratingPdf] = useState(false)
   const [savingItem, setSavingItem] = useState(false)
   const [newItemForm, setNewItemForm] = useState({ furnitureTypeId: '', description: '' })
+  const [notes, setNotes] = useState('')
+  const [savingNotes, setSavingNotes] = useState(false)
+  const [notesSaved, setNotesSaved] = useState(false)
 
 
 
@@ -34,7 +37,9 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
         fetch(`/api/quotes/${id}`),
         fetch('/api/furniture-types'),
       ])
-      setQuote(await qRes.json())
+      const q = await qRes.json()
+      setQuote(q)
+      setNotes(q.notes ?? '')
       setFurnitureTypes(await ftRes.json())
       setLoading(false)
     }
@@ -78,6 +83,19 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
     } finally {
       setSavingItem(false)
     }
+  }
+
+  async function handleSaveNotes() {
+    if (!id) return
+    setSavingNotes(true)
+    await fetch(`/api/quotes/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notes }),
+    })
+    setSavingNotes(false)
+    setNotesSaved(true)
+    setTimeout(() => setNotesSaved(false), 2500)
   }
 
   async function handleStatusChange(newStatus: string) {
@@ -266,6 +284,43 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
             <div className="total-row main">
               <span className="label">TOTAL</span>
               <span className="value">{fmt(quote.totalAmount)}</span>
+            </div>
+          </div>
+
+          <div className="card" style={{ marginTop: '1rem' }}>
+            <div className="card-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <h2>Observaciones</h2>
+              {notesSaved && <span style={{ fontSize: '0.75rem', color: 'var(--primary)', fontWeight: 600 }}>✓ Guardado</span>}
+            </div>
+            <div className="card-body">
+              <textarea
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                rows={4}
+                placeholder="Formas de pago, plazos de entrega, notas para el cliente…"
+                style={{
+                  width: '100%', padding: '10px 12px', fontSize: '0.8125rem',
+                  color: 'var(--text)', background: 'var(--bg-subtle)',
+                  border: '1px solid var(--border)', borderRadius: 8,
+                  outline: 'none', resize: 'vertical', fontFamily: 'inherit',
+                  lineHeight: 1.5, boxSizing: 'border-box',
+                }}
+                onFocus={e => (e.target.style.borderColor = 'var(--primary)')}
+                onBlur={e => (e.target.style.borderColor = 'var(--border)')}
+              />
+              <button
+                onClick={handleSaveNotes}
+                disabled={savingNotes}
+                style={{
+                  marginTop: 8, height: 34, padding: '0 16px', width: '100%',
+                  background: 'var(--primary)', color: 'white',
+                  fontWeight: 600, fontSize: '0.8125rem',
+                  border: 'none', borderRadius: 6, cursor: savingNotes ? 'not-allowed' : 'pointer',
+                  opacity: savingNotes ? 0.7 : 1,
+                }}
+              >
+                {savingNotes ? 'Guardando...' : 'Guardar observaciones'}
+              </button>
             </div>
           </div>
         </div>

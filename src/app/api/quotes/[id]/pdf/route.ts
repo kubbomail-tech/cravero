@@ -198,11 +198,11 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
     y -= 5
   }
 
-  // Totals box
-  checkSpace(140)
+  // Totals box — labor is included in subtotal, not shown separately
+  checkSpace(110)
   y -= 16
   const hasDiscount = toNumber(quote.discountAmount) > 0
-  const totalsH = hasDiscount ? 136 : 123
+  const totalsH = hasDiscount ? 110 : 97
   page.drawRectangle({ x: W - 220, y: y - totalsH, width: 184, height: totalsH, color: DARK })
 
   let ty = y - 16
@@ -212,13 +212,12 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
     ty -= 13
   }
 
-  totalRow('Subtotal materiales:', fmt(quote.subtotalMaterials))
-  totalRow(`Mano de obra (${toNumber(quote.laborPercentage)}%):`, fmt(quote.subtotalLabor))
+  const subtotalBeforeDiscount = toNumber(quote.subtotalMaterials) + toNumber(quote.subtotalLabor)
+  totalRow('Subtotal:', fmt(subtotalBeforeDiscount))
   if (hasDiscount) {
-    const discountDollar = toNumber(quote.subtotalMaterials) + toNumber(quote.subtotalLabor) - toNumber(quote.subtotalBeforeTax)
+    const discountDollar = subtotalBeforeDiscount - toNumber(quote.subtotalBeforeTax)
     totalRow(`Descuento (${toNumber(quote.discountAmount)}%):`, `-${fmt(discountDollar)}`)
   }
-  totalRow('Subtotal:', fmt(quote.subtotalBeforeTax))
   totalRow(`IVA (${toNumber(quote.vatPercentage)}%):`, fmt(quote.vatAmount))
   ty -= 14
   page.drawLine({ start: { x: W - 214, y: ty + 6 }, end: { x: W - 44, y: ty + 6 }, color: rgb(0.4,0.7,0.68), thickness: 0.5 })
