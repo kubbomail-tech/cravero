@@ -65,10 +65,11 @@ export const quoteItemEdgeBandSchema = z.object({
 export const quoteItemCutSchema = z.object({
   materialId: z.string().optional(),
   description: z.string().optional(),
-  width: z.coerce.number().min(1, 'El ancho es requerido'),
-  height: z.coerce.number().min(1, 'El alto es requerido'),
+  width: z.coerce.number().min(0).default(0),
+  height: z.coerce.number().min(0).default(0),
   quantity: z.coerce.number().min(1).default(1),
   notes: z.string().optional(),
+  showInPdf: z.boolean().optional().default(false),
   edgeBandMaterialId: z.string().optional(),
   edgeBands: z.array(quoteItemEdgeBandSchema).default([]),
 })

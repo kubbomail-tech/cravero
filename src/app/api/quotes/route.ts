@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
   const body = await req.json()
   const parsed = quoteSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
+    return NextResponse.json({ error: parsed.error.issues }, { status: 400 })
   }
 
   const { items, ...quoteData } = parsed.data
@@ -116,7 +116,7 @@ export async function POST(req: NextRequest) {
           areaPerUnit: calc.areaPerUnit,
           totalArea: calc.totalArea,
           subtotalCost: calc.subtotalCost,
-          showInPdf: (cut as any).showInPdf ?? true,
+          showInPdf: cut.showInPdf ?? false,
           edgeBands: { create: edgeBandsToCreate }
         }
       })
