@@ -32,18 +32,32 @@ export async function recalcItem(tx: any, itemId: string, quoteId: string) {
   const quote = await tx.quote.findUnique({ where: { id: quoteId } })
   if (!quote) return
 
-  const totalMat = allItems.reduce(
-    (a: number, i: any) => a + toNumber(i.subtotalMaterials) + toNumber(i.subtotalHardware) + toNumber(i.subtotalAdditionals),
+  // Labor base: only materials + hardware — additionals never carry MO
+  const totalLaborBase = allItems.reduce(
+    (a: number, i: any) => a + toNumber(i.subtotalMaterials) + toNumber(i.subtotalHardware),
     0
   )
-  const labor = totalMat * (toNumber(quote.laborPercentage) / 100)
-  const sub = totalMat + labor
-  const discountDollar = sub * (toNumber(quote.discountAmount) / 100)
-  const beforeTax = sub - discountDollar
+  const totalAdditionals = allItems.reduce((a: number, i: any) => a + toNumber(i.subtotalAdditionals), 0)
+
+  const labor = totalLaborBase * (toNumber(quote.laborPercentage) / 100)
+
+  // Discount applies only on (materials + hardware + MO), not on additionals
+  const discountableBase = totalLaborBase + labor
+  const discountDollar = discountableBase * (toNumber(quote.discountAmount) / 100)
+  const afterDiscount = discountableBase - discountDollar
+
+  const beforeTax = afterDiscount + totalAdditionals
   const vat = beforeTax * (toNumber(quote.vatPercentage) / 100)
 
   await tx.quote.update({
     where: { id: quoteId },
-    data: { subtotalMaterials: totalMat, subtotalLabor: labor, subtotalBeforeTax: beforeTax, vatAmount: vat, totalAmount: beforeTax + vat },
+    data: {
+      subtotalMaterials: totalLaborBase,
+      subtotalLabor: labor,
+      subtotalAdditionals: totalAdditionals,
+      subtotalBeforeTax: beforeTax,
+      vatAmount: vat,
+      totalAmount: beforeTax + vat,
+    },
   })
 }

@@ -205,11 +205,12 @@ model Quote {
   discountAmount   Decimal     @default(0) @map("discount_amount") @db.Decimal(12, 2)
   paymentTerms     String?     @map("payment_terms")
   notes            String?
-  subtotalMaterials Decimal    @default(0) @map("subtotal_materials") @db.Decimal(12, 2)
-  subtotalLabor    Decimal     @default(0) @map("subtotal_labor") @db.Decimal(12, 2)
-  subtotalBeforeTax Decimal    @default(0) @map("subtotal_before_tax") @db.Decimal(12, 2)
-  vatAmount        Decimal     @default(0) @map("vat_amount") @db.Decimal(12, 2)
-  totalAmount      Decimal     @default(0) @map("total_amount") @db.Decimal(12, 2)
+  subtotalMaterials   Decimal   @default(0) @map("subtotal_materials") @db.Decimal(12, 2)
+  subtotalLabor       Decimal   @default(0) @map("subtotal_labor") @db.Decimal(12, 2)
+  subtotalAdditionals Decimal   @default(0) @map("subtotal_additionals") @db.Decimal(12, 2)
+  subtotalBeforeTax   Decimal   @default(0) @map("subtotal_before_tax") @db.Decimal(12, 2)
+  vatAmount           Decimal   @default(0) @map("vat_amount") @db.Decimal(12, 2)
+  totalAmount         Decimal   @default(0) @map("total_amount") @db.Decimal(12, 2)
   createdBy        String      @map("created_by")
   createdAt        DateTime    @default(now()) @map("created_at")
   updatedAt        DateTime    @updatedAt @map("updated_at")
@@ -229,11 +230,12 @@ model QuoteItem {
   description     String?
   quantity        Int      @default(1)
   notes           String?
-  subtotalMaterials    Decimal @default(0) @map("subtotal_materials") @db.Decimal(12, 2)
-  subtotalHardware     Decimal @default(0) @map("subtotal_hardware") @db.Decimal(12, 2)
-  subtotalAdditionals  Decimal @default(0) @map("subtotal_additionals") @db.Decimal(12, 2)
-  subtotalLabor        Decimal @default(0) @map("subtotal_labor") @db.Decimal(12, 2)
-  subtotalTotal        Decimal @default(0) @map("subtotal_total") @db.Decimal(12, 2)
+  subtotalMaterials         Decimal @default(0) @map("subtotal_materials") @db.Decimal(12, 2)
+  subtotalHardware          Decimal @default(0) @map("subtotal_hardware") @db.Decimal(12, 2)
+  subtotalAdditionals       Decimal @default(0) @map("subtotal_additionals") @db.Decimal(12, 2)
+  subtotalAdditionalsLabor  Decimal @default(0) @map("subtotal_additionals_labor") @db.Decimal(12, 2)
+  subtotalLabor             Decimal @default(0) @map("subtotal_labor") @db.Decimal(12, 2)
+  subtotalTotal             Decimal @default(0) @map("subtotal_total") @db.Decimal(12, 2)
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
@@ -319,6 +321,7 @@ model QuoteItemAdditional {
   quantity                 Int      @default(1)
   subtotalCost             Decimal  @default(0) @map("subtotal_cost") @db.Decimal(12, 2)
   showPrice                Boolean  @default(true) @map("show_price")
+  applyLabor               Boolean  @default(false) @map("apply_labor")
   createdAt                DateTime @default(now()) @map("created_at")
   updatedAt                DateTime @updatedAt @map("updated_at")
 

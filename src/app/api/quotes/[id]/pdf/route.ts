@@ -6,7 +6,7 @@ import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
 import fs from 'fs'
 import path from 'path'
 
-const PRIMARY = rgb(0.098, 0.557, 0.522) // #198e85
+const PRIMARY = rgb(0.098, 0.557, 0.522)
 const DARK = rgb(0.051, 0.31, 0.29)
 const WHITE = rgb(1, 1, 1)
 const LIGHT_GRAY = rgb(0.95, 0.97, 0.98)
@@ -41,7 +41,6 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica)
   const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
 
-  // Embed logo
   let logoImage: Awaited<ReturnType<typeof pdfDoc.embedPng>> | null = null
   try {
     const logoPath = path.join(process.cwd(), 'public', 'logo.png')
@@ -61,199 +60,201 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
   }
 
   function checkSpace(needed: number) {
-    if (y - needed < 60) newPage()
+    if (y - needed < 55) newPage()
   }
 
   function drawHeader() {
-    // Header bar
-    page.drawRectangle({ x: 0, y: H - 80, width: W, height: 80, color: DARK })
+    // Header bar — compact 60px
+    page.drawRectangle({ x: 0, y: H - 60, width: W, height: 60, color: DARK })
 
-    // Logo or fallback text
     if (logoImage) {
-      const logoH = 50
+      const logoH = 38
       const logoW = logoImage.width * (logoH / logoImage.height)
-      page.drawImage(logoImage, { x: 32, y: H - 68, width: logoW, height: logoH })
+      page.drawImage(logoImage, { x: 32, y: H - 52, width: logoW, height: logoH })
     } else {
-      page.drawText('CRAVERO MUEBLES', { x: 40, y: H - 38, size: 18, font: fontBold, color: WHITE })
-      page.drawText('Sistema de Presupuestación', { x: 40, y: H - 55, size: 9, font, color: rgb(0.7,0.9,0.88) })
+      page.drawText('CRAVERO MUEBLES', { x: 40, y: H - 28, size: 16, font: fontBold, color: WHITE })
+      page.drawText('Sistema de Presupuestación', { x: 40, y: H - 43, size: 8, font, color: rgb(0.7,0.9,0.88) })
     }
 
-    // Quote number right
-    page.drawText(`PRESUPUESTO`, { x: W - 200, y: H - 35, size: 8, font, color: rgb(0.7,0.9,0.88) })
-    page.drawText(quote!.quoteNumber, { x: W - 200, y: H - 52, size: 16, font: fontBold, color: WHITE })
+    page.drawText('PRESUPUESTO', { x: W - 190, y: H - 22, size: 7, font, color: rgb(0.7,0.9,0.88) })
+    page.drawText(quote!.quoteNumber, { x: W - 190, y: H - 38, size: 15, font: fontBold, color: WHITE })
 
-    y = H - 90
+    y = H - 68
   }
 
   drawHeader()
 
-  // Client + dates block
-  y -= 12
-  page.drawRectangle({ x: 36, y: y - 70, width: W - 72, height: 80, color: LIGHT_GRAY })
-
+  // Combined client + title block
+  y -= 8
   const issueDate = new Date(quote.issueDate).toLocaleDateString('es-AR')
   const expDate = quote.expirationDate ? new Date(quote.expirationDate).toLocaleDateString('es-AR') : '—'
-
-  // Left: client
-  page.drawText('CLIENTE', { x: 48, y: y - 14, size: 7, font: fontBold, color: MUTED })
-  page.drawText(quote.client.fullName, { x: 48, y: y - 28, size: 11, font: fontBold, color: TEXT })
-  if (quote.client.businessName) {
-    page.drawText(quote.client.businessName, { x: 48, y: y - 42, size: 9, font, color: MUTED })
-  }
   const contactLine = [quote.client.phone, quote.client.email].filter(Boolean).join('  ·  ')
-  if (contactLine) page.drawText(contactLine, { x: 48, y: y - 56, size: 8, font, color: MUTED })
 
-  // Right: dates
-  page.drawText('FECHA', { x: W - 200, y: y - 14, size: 7, font: fontBold, color: MUTED })
-  page.drawText(issueDate, { x: W - 200, y: y - 28, size: 10, font, color: TEXT })
-  page.drawText('VENCIMIENTO', { x: W - 130, y: y - 14, size: 7, font: fontBold, color: MUTED })
-  page.drawText(expDate, { x: W - 130, y: y - 28, size: 10, font, color: TEXT })
+  const blockH = 58 + (quote.title ? 26 : 0)
+  page.drawRectangle({ x: 36, y: y - blockH + 8, width: W - 72, height: blockH, color: LIGHT_GRAY })
 
-  y -= 86
+  page.drawText('CLIENTE', { x: 48, y: y - 10, size: 6.5, font: fontBold, color: MUTED })
+  page.drawText(quote.client.fullName, { x: 48, y: y - 22, size: 10, font: fontBold, color: TEXT })
+  if (quote.client.businessName) {
+    page.drawText(quote.client.businessName, { x: 48, y: y - 34, size: 8.5, font, color: MUTED })
+  }
+  if (contactLine) page.drawText(contactLine, { x: 48, y: y - 44, size: 7.5, font, color: MUTED })
 
-  // Title block
+  page.drawText('FECHA', { x: W - 190, y: y - 10, size: 6.5, font: fontBold, color: MUTED })
+  page.drawText(issueDate, { x: W - 190, y: y - 22, size: 9, font, color: TEXT })
+  page.drawText('VENCIMIENTO', { x: W - 120, y: y - 10, size: 6.5, font: fontBold, color: MUTED })
+  page.drawText(expDate, { x: W - 120, y: y - 22, size: 9, font, color: TEXT })
+
   if (quote.title) {
-    checkSpace(28)
-    y -= 6
-    page.drawRectangle({ x: 36, y: y - 22, width: W - 72, height: 26, color: rgb(0.94, 0.97, 0.97) })
-    page.drawText('TIPO DE AMOBLAMIENTO:', { x: 48, y: y - 8, size: 6.5, font: fontBold, color: MUTED })
-    page.drawText(quote.title.toUpperCase(), { x: 48, y: y - 18, size: 9, font: fontBold, color: TEXT })
-    y -= 30
+    page.drawLine({ start: { x: 44, y: y - 52 }, end: { x: W - 44, y: y - 52 }, color: rgb(0.87, 0.9, 0.92), thickness: 0.5 })
+    page.drawText('TIPO DE AMOBLAMIENTO: ', { x: 48, y: y - 61, size: 6, font: fontBold, color: MUTED })
+    page.drawText(quote.title.toUpperCase(), { x: 48 + fontBold.widthOfTextAtSize('TIPO DE AMOBLAMIENTO: ', 6), y: y - 61, size: 8, font: fontBold, color: TEXT })
   }
 
-  // Notes — between client block and items
+  y -= blockH + 4
+
+  // Notes
   if (quote.notes) {
-    checkSpace(44)
-    y -= 8
-    page.drawText('OBSERVACIONES:', { x: 48, y: y - 8, size: 7, font: fontBold, color: MUTED })
-    page.drawText(quote.notes.substring(0, 120), { x: 48, y: y - 20, size: 8.5, font, color: TEXT })
-    y -= 36
+    checkSpace(36)
+    y -= 6
+    page.drawText('OBSERVACIONES:', { x: 48, y: y - 6, size: 6.5, font: fontBold, color: MUTED })
+    page.drawText(quote.notes.substring(0, 120), { x: 48, y: y - 16, size: 8, font, color: TEXT })
+    y -= 28
   }
+
+  const laborFactor = 1 + toNumber(quote.laborPercentage) / 100
 
   // Items
   for (const item of quote.items) {
-    checkSpace(40)
-    y -= 6
+    checkSpace(34)
+    y -= 5
 
     // Item header
-    page.drawRectangle({ x: 36, y: y - 20, width: W - 72, height: 23, color: PRIMARY })
+    const itemMatHw = toNumber(item.subtotalMaterials) + toNumber(item.subtotalHardware)
+    const itemClientTotal = itemMatHw * laborFactor + toNumber(item.subtotalAdditionals)
+    page.drawRectangle({ x: 36, y: y - 18, width: W - 72, height: 20, color: PRIMARY })
     const itemLabel = `${item.furnitureType?.name ?? 'Mueble'}${item.description ? ' · ' + item.description : ''} (×${item.quantity})`
-    page.drawText(itemLabel, { x: 44, y: y - 14, size: 8.5, font: fontBold, color: WHITE })
-    const itemTotal = fmt(item.subtotalTotal)
-    page.drawText(itemTotal, { x: W - 100, y: y - 14, size: 8.5, font: fontBold, color: WHITE })
-    y -= 25
+    page.drawText(itemLabel, { x: 44, y: y - 12, size: 8, font: fontBold, color: WHITE })
+    page.drawText(fmt(itemClientTotal), { x: W - 100, y: y - 12, size: 8, font: fontBold, color: WHITE })
+    y -= 21
 
     // Cuts table
     if (item.cuts.length > 0) {
-      checkSpace(20)
-      page.drawText('Cortes y piezas:', { x: 44, y: y - 7, size: 6.5, font: fontBold, color: MUTED })
-      y -= 13
-
-      // Table header
-      page.drawRectangle({ x: 44, y: y - 12, width: W - 88, height: 13, color: rgb(0.9, 0.94, 0.94) })
-      page.drawText('Material', { x: 48, y: y - 8, size: 6.5, font: fontBold, color: MUTED })
-      page.drawText('Descripción', { x: 180, y: y - 8, size: 6.5, font: fontBold, color: MUTED })
-      page.drawText('Ancho', { x: 278, y: y - 8, size: 6.5, font: fontBold, color: MUTED })
-      page.drawText('Alto', { x: 318, y: y - 8, size: 6.5, font: fontBold, color: MUTED })
-      page.drawText('Cant', { x: 350, y: y - 8, size: 6.5, font: fontBold, color: MUTED })
-      page.drawText('m²', { x: 380, y: y - 8, size: 6.5, font: fontBold, color: MUTED })
-      page.drawText('Subtotal', { x: W - 100, y: y - 8, size: 6.5, font: fontBold, color: MUTED })
-      y -= 14
-
       for (const cut of item.cuts) {
         if (cut.showInPdf === false) continue
-        checkSpace(11)
-        const matName = cut.materialNameSnapshot ?? '—'
-        page.drawText(matName.substring(0, 24), { x: 48, y: y - 7, size: 7, font, color: TEXT })
-        page.drawText((cut.description ?? '').substring(0, 16), { x: 180, y: y - 7, size: 7, font, color: TEXT })
-        page.drawText(String(cut.width), { x: 278, y: y - 7, size: 7, font, color: TEXT })
-        page.drawText(String(cut.height), { x: 318, y: y - 7, size: 7, font, color: TEXT })
-        page.drawText(String(cut.quantity), { x: 353, y: y - 7, size: 7, font, color: TEXT })
-        page.drawText(parseFloat(String(cut.totalArea)).toFixed(3), { x: 380, y: y - 7, size: 7, font, color: TEXT })
-        page.drawText(fmt(cut.subtotalCost), { x: W - 100, y: y - 7, size: 7, font: fontBold, color: TEXT })
-        y -= 11
+        checkSpace(9)
+        const edgeBandCost = (cut.edgeBands ?? []).reduce((s: number, eb: any) => s + toNumber(eb.subtotalCost), 0)
+        const cutRaw = toNumber(cut.subtotalCost) + edgeBandCost
+        page.drawText(String(cut.quantity), { x: 48,      y: y - 6, size: 6.5, font, color: TEXT })
+        page.drawText(fmt(cutRaw),          { x: W - 100, y: y - 6, size: 6.5, font: fontBold, color: TEXT })
+        y -= 9
       }
 
-      // Always show materials subtotal
-      const totalCuts = item.cuts.reduce((s: number, c: { subtotalCost: any }) => s + toNumber(c.subtotalCost), 0)
+      // Total materiales con MO absorbida
+      checkSpace(9)
+      page.drawText('Total materiales:', { x: 44, y: y - 6, size: 6.5, font: fontBold, color: MUTED })
+      page.drawText(fmt(toNumber(item.subtotalMaterials) * laborFactor), { x: W - 100, y: y - 6, size: 6.5, font: fontBold, color: TEXT })
+      y -= 9
+    }
+
+    // Herrajes con MO absorbida
+    if (toNumber(item.subtotalHardware) > 0) {
       checkSpace(11)
-      page.drawText('Total materiales:', { x: 44, y: y - 7, size: 7, font: fontBold, color: MUTED })
-      page.drawText(fmt(totalCuts), { x: W - 100, y: y - 7, size: 7, font: fontBold, color: TEXT })
-      y -= 11
-    }
-
-    // Accessories — single summary line
-    if (item.accessories.length > 0) {
-      checkSpace(14)
       y -= 2
-      page.drawText('Herrajes y accesorios:', { x: 44, y: y - 7, size: 7, font: fontBold, color: MUTED })
-      const totalAcc = item.accessories.reduce((s: number, a: { subtotalCost: any }) => s + toNumber(a.subtotalCost), 0)
-      page.drawText(fmt(totalAcc), { x: W - 100, y: y - 7, size: 7, font: fontBold, color: TEXT })
-      y -= 13
+      page.drawText('Herrajes y accesorios:', { x: 44, y: y - 6, size: 6.5, font: fontBold, color: MUTED })
+      page.drawText(fmt(toNumber(item.subtotalHardware) * laborFactor), { x: W - 100, y: y - 6, size: 6.5, font: fontBold, color: TEXT })
+      y -= 10
     }
 
-    // Adicionales
+    // Adicionales — sin MO
     const additionals = (item as any).additionals ?? []
     if (additionals.length > 0) {
-      checkSpace(14)
+      checkSpace(11)
       y -= 2
-      page.drawText('Adicionales:', { x: 44, y: y - 7, size: 7, font: fontBold, color: MUTED })
-      y -= 13
+      page.drawText('Adicionales:', { x: 44, y: y - 6, size: 6.5, font: fontBold, color: MUTED })
+      y -= 10
 
       for (const add of additionals) {
-        checkSpace(11)
+        checkSpace(9)
         const label = `${add.materialNameSnapshot ?? ''} ${add.description ? '· ' + add.description : ''}`
-        page.drawText(label.substring(0, 55), { x: 48, y: y - 7, size: 7, font, color: TEXT })
-        page.drawText(`×${add.quantity}`, { x: 353, y: y - 7, size: 7, font, color: TEXT })
+        page.drawText(`×${add.quantity}`, { x: 48,  y: y - 6, size: 6.5, font, color: TEXT })
+        page.drawText(label.substring(0, 55), { x: 70, y: y - 6, size: 6.5, font, color: TEXT })
         if (add.showPrice) {
-          page.drawText(fmt(add.subtotalCost), { x: W - 100, y: y - 7, size: 7, font: fontBold, color: TEXT })
+          page.drawText(fmt(add.subtotalCost), { x: W - 100, y: y - 6, size: 6.5, font: fontBold, color: TEXT })
         }
-        y -= 11
+        y -= 9
       }
     }
 
-    y -= 5
+    y -= 4
   }
 
-  // Totals box — labor is included in subtotal, not shown separately
-  checkSpace(110)
-  y -= 16
+  // Totals box
   const hasDiscount = toNumber(quote.discountAmount) > 0
-  const totalsH = hasDiscount ? 110 : 97
-  page.drawRectangle({ x: W - 220, y: y - totalsH, width: 184, height: totalsH, color: DARK })
+  const hasAdditionals = toNumber(quote.subtotalAdditionals) > 0
+  const totalsH = 76 + (hasDiscount ? 11 : 0) + (hasAdditionals ? 11 : 0)
+  checkSpace(totalsH + 14)
+  y -= 14
+  page.drawRectangle({ x: W - 210, y: y - totalsH, width: 174, height: totalsH, color: DARK })
 
-  let ty = y - 16
+  let ty = y - 12
   function totalRow(label: string, value: string, bold = false) {
-    page.drawText(label, { x: W - 214, y: ty, size: 8, font: bold ? fontBold : font, color: rgb(0.8,0.95,0.93) })
-    page.drawText(value, { x: W - 60 - fontBold.widthOfTextAtSize(value, 8), y: ty, size: 8, font: bold ? fontBold : font, color: WHITE })
-    ty -= 13
+    page.drawText(label, { x: W - 204, y: ty, size: 7.5, font: bold ? fontBold : font, color: rgb(0.8,0.95,0.93) })
+    page.drawText(value, { x: W - 48 - fontBold.widthOfTextAtSize(value, 7.5), y: ty, size: 7.5, font: bold ? fontBold : font, color: WHITE })
+    ty -= 11
   }
 
-  const subtotalBeforeDiscount = toNumber(quote.subtotalMaterials) + toNumber(quote.subtotalLabor)
-  totalRow('Subtotal:', fmt(subtotalBeforeDiscount))
+  const discountableBase = toNumber(quote.subtotalMaterials) + toNumber(quote.subtotalLabor)
+  totalRow('Subtotal:', fmt(discountableBase))
   if (hasDiscount) {
-    const discountDollar = subtotalBeforeDiscount - toNumber(quote.subtotalBeforeTax)
+    const discountDollar = discountableBase * (toNumber(quote.discountAmount) / 100)
     totalRow(`Descuento (${toNumber(quote.discountAmount)}%):`, `-${fmt(discountDollar)}`)
   }
+  if (hasAdditionals) {
+    totalRow('Adicionales:', fmt(quote.subtotalAdditionals))
+  }
   totalRow(`IVA (${toNumber(quote.vatPercentage)}%):`, fmt(quote.vatAmount))
-  ty -= 14
-  page.drawLine({ start: { x: W - 214, y: ty + 6 }, end: { x: W - 44, y: ty + 6 }, color: rgb(0.4,0.7,0.68), thickness: 0.5 })
-  ty -= 6
+  ty -= 10
+  page.drawLine({ start: { x: W - 204, y: ty + 5 }, end: { x: W - 44, y: ty + 5 }, color: rgb(0.4,0.7,0.68), thickness: 0.5 })
+  ty -= 5
   totalRow('TOTAL:', fmt(quote.totalAmount), true)
 
   // Payment terms
   if (quote.paymentTerms) {
-    y -= totalsH + 16
-    page.drawText('FORMAS DE PAGO:', { x: 40, y: y, size: 7.5, font: fontBold, color: MUTED })
-    page.drawText(quote.paymentTerms, { x: 40, y: y - 14, size: 8.5, font, color: TEXT })
-    y -= 32
+    y -= totalsH + 14
+    checkSpace(20)
+    page.drawText('FORMAS DE PAGO:', { x: 40, y: y, size: 7, font: fontBold, color: MUTED })
+    y -= 12
+
+    const maxW = W - 80
+    for (const paragraph of quote.paymentTerms.split('\n')) {
+      if (!paragraph.trim()) { y -= 5; continue }
+      const words = paragraph.split(' ')
+      let line = ''
+      for (const word of words) {
+        const test = line ? `${line} ${word}` : word
+        if (font.widthOfTextAtSize(test, 8) > maxW) {
+          checkSpace(10)
+          page.drawText(line, { x: 40, y: y, size: 8, font, color: TEXT })
+          y -= 10
+          line = word
+        } else {
+          line = test
+        }
+      }
+      if (line) {
+        checkSpace(10)
+        page.drawText(line, { x: 40, y: y, size: 8, font, color: TEXT })
+        y -= 10
+      }
+    }
   }
 
   // Footer
   const lastPage = pdfDoc.getPages()[pdfDoc.getPageCount() - 1]
-  lastPage.drawLine({ start: { x: 40, y: 50 }, end: { x: W - 40, y: 50 }, color: LIGHT_GRAY, thickness: 1 })
-  lastPage.drawText('Este presupuesto es válido hasta la fecha de vencimiento indicada.', { x: 40, y: 34, size: 7.5, font, color: MUTED })
-  lastPage.drawText('Cravero Muebles', { x: W - 120, y: 34, size: 7.5, font: fontBold, color: PRIMARY })
+  lastPage.drawLine({ start: { x: 40, y: 46 }, end: { x: W - 40, y: 46 }, color: LIGHT_GRAY, thickness: 1 })
+  lastPage.drawText('Este presupuesto es válido hasta la fecha de vencimiento indicada.', { x: 40, y: 32, size: 7, font, color: MUTED })
+  lastPage.drawText('Cravero Muebles', { x: W - 116, y: 32, size: 7, font: fontBold, color: PRIMARY })
 
   const pdfBytes = await pdfDoc.save()
 

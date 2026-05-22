@@ -155,22 +155,24 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     const quote = await tx.quote.findUnique({ where: { id: quoteId } })
 
     if (quote) {
-      const totalMat = allItems.reduce((a, i) => a + toNumber(i.subtotalMaterials) + toNumber(i.subtotalHardware) + toNumber(i.subtotalAdditionals), 0)
-      const labor = totalMat * (toNumber(quote.laborPercentage) / 100)
-      const subtotalBeforeDiscount = totalMat + labor
-      const discountDollar = subtotalBeforeDiscount * (toNumber(quote.discountAmount) / 100)
-      const beforeTax = subtotalBeforeDiscount - discountDollar
+      const totalLaborBase = allItems.reduce((a, i) => a + toNumber(i.subtotalMaterials) + toNumber(i.subtotalHardware), 0)
+      const totalAdditionals = allItems.reduce((a, i) => a + toNumber(i.subtotalAdditionals), 0)
+      const labor = totalLaborBase * (toNumber(quote.laborPercentage) / 100)
+      const discountableBase = totalLaborBase + labor
+      const discountDollar = discountableBase * (toNumber(quote.discountAmount) / 100)
+      const afterDiscount = discountableBase - discountDollar
+      const beforeTax = afterDiscount + totalAdditionals
       const vat = beforeTax * (toNumber(quote.vatPercentage) / 100)
-      const total = beforeTax + vat
 
       await tx.quote.update({
         where: { id: quoteId },
         data: {
-          subtotalMaterials: totalMat,
+          subtotalMaterials: totalLaborBase,
           subtotalLabor: labor,
+          subtotalAdditionals: totalAdditionals,
           subtotalBeforeTax: beforeTax,
           vatAmount: vat,
-          totalAmount: total,
+          totalAmount: beforeTax + vat,
         },
       })
     }

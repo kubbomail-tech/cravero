@@ -232,6 +232,10 @@ export default function NuevoPresupuestoPage() {
   const btnGhost = 'text-xs font-bold uppercase tracking-widest text-slate-400 hover:text-[#198e85] transition-colors px-4'
   const btnDanger = 'w-11 h-11 rounded-2xl bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all text-xl leading-none shadow-sm'
 
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [wizardStep])
+
   const STEPS: WizardStep[] = ['type', 'cuts', 'hardware', 'additionals', 'confirm']
   const STEP_LABELS = ['Tipo', 'Cortes', 'Herrajes', 'Adicionales', 'Confirmar']
 
@@ -606,12 +610,12 @@ export default function NuevoPresupuestoPage() {
                             </div>
                             <div className="col-span-1">
                               <label className={lbl}>Ancho</label>
-                              <input type="number" className={numInp} placeholder="0" value={cut.width || ''}
+                              <input type="number" className={numInp} placeholder="mm" value={cut.width === 0 ? '' : cut.width}
                                 onChange={e => updateCut(cIdx, { width: parseFloat(e.target.value) || 0 })} />
                             </div>
                             <div className="col-span-1">
                               <label className={lbl}>Alto</label>
-                              <input type="number" className={numInp} placeholder="0" value={cut.height || ''}
+                              <input type="number" className={numInp} placeholder="mm" value={cut.height === 0 ? '' : cut.height}
                                 onChange={e => updateCut(cIdx, { height: parseFloat(e.target.value) || 0 })} />
                             </div>
                             <div className="col-span-1 flex flex-col justify-end">

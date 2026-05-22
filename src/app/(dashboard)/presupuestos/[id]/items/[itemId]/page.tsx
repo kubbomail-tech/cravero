@@ -267,19 +267,23 @@ export default function QuoteItemDetailPage({ params }: { params: Promise<{ id: 
               <tbody>
                 {item.cuts.length === 0
                   ? <tr><td colSpan={9} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Sin cortes</td></tr>
-                  : item.cuts.map((cut: any) => (
-                    <tr key={cut.id}>
-                      <td style={{ fontWeight: 500 }}>{cut.description ?? '—'}</td>
-                      <td style={{ color: 'var(--text-muted)' }}>{cut.materialNameSnapshot ?? '—'}</td>
-                      <td>{cut.width} mm</td>
-                      <td>{cut.height} mm</td>
-                      <td>{cut.quantity}</td>
-                      <td>{cut.edgeBands?.length ?? 0}</td>
-                      <td><span className="badge badge-gray">{cut.showInPdf !== false ? 'Visible' : 'Oculto'}</span></td>
-                      <td style={{ fontWeight: 600, color: 'var(--primary)' }}>{fmt(cut.subtotalCost)}</td>
-                      <td><button className="btn btn-ghost btn-sm" style={{ color: 'var(--danger)' }} onClick={() => deleteCut(cut.id)}>✕</button></td>
-                    </tr>
-                  ))}
+                  : item.cuts.map((cut: any) => {
+                    const edgeBandCost = (cut.edgeBands ?? []).reduce((s: number, eb: any) => s + parseFloat(String(eb.subtotalCost)), 0)
+                    const cutTotal = parseFloat(String(cut.subtotalCost)) + edgeBandCost
+                    return (
+                      <tr key={cut.id}>
+                        <td style={{ fontWeight: 500 }}>{cut.description ?? '—'}</td>
+                        <td style={{ color: 'var(--text-muted)' }}>{cut.materialNameSnapshot ?? '—'}</td>
+                        <td>{cut.width} mm</td>
+                        <td>{cut.height} mm</td>
+                        <td>{cut.quantity}</td>
+                        <td>{cut.edgeBands?.length ?? 0}</td>
+                        <td><span className="badge badge-gray">{cut.showInPdf !== false ? 'Visible' : 'Oculto'}</span></td>
+                        <td style={{ fontWeight: 600, color: 'var(--primary)' }}>{fmt(cutTotal)}</td>
+                        <td><button className="btn btn-ghost btn-sm" style={{ color: 'var(--danger)' }} onClick={() => deleteCut(cut.id)}>✕</button></td>
+                      </tr>
+                    )
+                  })}
               </tbody>
             </table>
           </div>
@@ -319,7 +323,7 @@ export default function QuoteItemDetailPage({ params }: { params: Promise<{ id: 
           </div>
           <div className="table-wrapper" style={{ margin: 0, border: 'none' }}>
             <table>
-              <thead><tr><th>Descripción</th><th>Material</th><th>Cant.</th><th>Precio</th><th>Subtotal</th><th></th></tr></thead>
+              <thead><tr><th>Descripción</th><th>Material</th><th>Cant.</th><th>Precio PDF</th><th>Subtotal</th><th></th></tr></thead>
               <tbody>
                 {(item.additionals ?? []).length === 0
                   ? <tr><td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Sin adicionales</td></tr>

@@ -302,7 +302,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
 
           <div className="totals-box">
             <div className="total-row">
-              <span className="label">Materiales</span>
+              <span className="label">Materiales y herrajes</span>
               <span className="value">{fmt(quote.subtotalMaterials)}</span>
             </div>
             <div className="total-row">
@@ -312,7 +312,13 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
             {toNumber(quote.discountAmount) > 0 && (
               <div className="total-row">
                 <span className="label">Descuento ({parseFloat(String(quote.discountAmount))}%)</span>
-                <span className="value" style={{ color: 'var(--danger)' }}>-{fmt(toNumber(quote.subtotalMaterials) + toNumber(quote.subtotalLabor) - toNumber(quote.subtotalBeforeTax))}</span>
+                <span className="value" style={{ color: 'var(--danger)' }}>-{fmt((toNumber(quote.subtotalMaterials) + toNumber(quote.subtotalLabor)) * toNumber(quote.discountAmount) / 100)}</span>
+              </div>
+            )}
+            {toNumber(quote.subtotalAdditionals) > 0 && (
+              <div className="total-row">
+                <span className="label">Adicionales</span>
+                <span className="value">{fmt(quote.subtotalAdditionals)}</span>
               </div>
             )}
             <div className="total-row">
