@@ -43,6 +43,7 @@ export async function POST(req: NextRequest) {
 
   const { items, ...quoteData } = parsed.data
 
+  try {
   return await prisma.$transaction(async (tx) => {
     // 1. Prepare Quote Number
     const count = await tx.quote.count()
@@ -66,6 +67,7 @@ export async function POST(req: NextRequest) {
 
     // 3. Process Items and calculate totals
     let quoteSubtotalMaterials = 0
+    let quoteSubtotalAdditionals = 0
 
     const itemsToCreate = items.map(item => {
       let itemSubtotalMaterials = 0
@@ -157,7 +159,8 @@ export async function POST(req: NextRequest) {
         }
       })
 
-      quoteSubtotalMaterials += (itemSubtotalMaterials + itemSubtotalHardware + itemSubtotalAdditionals)
+      quoteSubtotalMaterials += (itemSubtotalMaterials + itemSubtotalHardware)
+      quoteSubtotalAdditionals += itemSubtotalAdditionals
 
       return {
         furnitureTypeId: item.furnitureTypeId,
@@ -173,11 +176,12 @@ export async function POST(req: NextRequest) {
       }
     })
 
-    // 4. Final Quote Totals
+    // 4. Final Quote Totals — additionals excluded from labor base and discount
     const labor = quoteSubtotalMaterials * (toNumber(quoteData.laborPercentage) / 100)
-    const subtotalBeforeDiscount = quoteSubtotalMaterials + labor
-    const discountDollar = subtotalBeforeDiscount * (toNumber(quoteData.discountAmount) / 100)
-    const beforeTax = subtotalBeforeDiscount - discountDollar
+    const discountableBase = quoteSubtotalMaterials + labor
+    const discountDollar = discountableBase * (toNumber(quoteData.discountAmount) / 100)
+    const afterDiscount = discountableBase - discountDollar
+    const beforeTax = afterDiscount + quoteSubtotalAdditionals
     const vat = beforeTax * (toNumber(quoteData.vatPercentage) / 100)
     const total = beforeTax + vat
 
@@ -195,6 +199,7 @@ export async function POST(req: NextRequest) {
         notes: quoteData.notes,
         subtotalMaterials: quoteSubtotalMaterials,
         subtotalLabor: labor,
+        subtotalAdditionals: quoteSubtotalAdditionals,
         subtotalBeforeTax: beforeTax,
         vatAmount: vat,
         totalAmount: total,
@@ -206,4 +211,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(quote, { status: 201 })
   })
+  } catch (error) {
+    console.error('[POST /api/quotes]', error)
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    return NextResponse.json({ error: message }, { status: 500 })
+  }
 }
