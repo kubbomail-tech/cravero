@@ -45,9 +45,15 @@ export async function POST(req: NextRequest) {
 
   try {
   return await prisma.$transaction(async (tx) => {
-    // 1. Prepare Quote Number
-    const count = await tx.quote.count()
-    const quoteNumber = generateQuoteNumber(count)
+    // 1. Prepare Quote Number — use last existing number to avoid gaps from deletions
+    const year = new Date().getFullYear()
+    const lastQuote = await tx.quote.findFirst({
+      where: { quoteNumber: { startsWith: `P-${year}-` } },
+      orderBy: { quoteNumber: 'desc' },
+      select: { quoteNumber: true },
+    })
+    const nextSeq = lastQuote ? parseInt(lastQuote.quoteNumber.split('-')[2]) + 1 : 1
+    const quoteNumber = `P-${year}-${String(nextSeq).padStart(4, '0')}`
 
     // 2. Fetch all materials needed for snapshots
     const materialIds = new Set<string>()
