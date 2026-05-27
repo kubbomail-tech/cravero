@@ -113,15 +113,6 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
 
   y -= blockH + 4
 
-  // Notes
-  if (quote.notes) {
-    checkSpace(36)
-    y -= 6
-    page.drawText('OBSERVACIONES:', { x: 48, y: y - 6, size: 6.5, font: fontBold, color: MUTED })
-    page.drawText(quote.notes.substring(0, 120), { x: 48, y: y - 16, size: 8, font, color: TEXT })
-    y -= 28
-  }
-
   const laborFactor = 1 + toNumber(quote.laborPercentage) / 100
 
   // Items
@@ -234,6 +225,39 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
       for (const word of words) {
         const test = line ? `${line} ${word}` : word
         if (font.widthOfTextAtSize(test, 8) > maxW) {
+          checkSpace(10)
+          page.drawText(line, { x: 40, y: y, size: 8, font, color: TEXT })
+          y -= 10
+          line = word
+        } else {
+          line = test
+        }
+      }
+      if (line) {
+        checkSpace(10)
+        page.drawText(line, { x: 40, y: y, size: 8, font, color: TEXT })
+        y -= 10
+      }
+    }
+  }
+
+  // Observaciones — full width, after totals
+  if (quote.notes) {
+    y -= 14
+    checkSpace(20)
+    page.drawRectangle({ x: 36, y: y - 2, width: W - 72, height: 1, color: LIGHT_GRAY })
+    y -= 10
+    page.drawText('OBSERVACIONES:', { x: 40, y: y, size: 6.5, font: fontBold, color: MUTED })
+    y -= 10
+
+    const maxWn = W - 80
+    for (const paragraph of quote.notes.split('\n')) {
+      if (!paragraph.trim()) { y -= 5; continue }
+      const words = paragraph.split(' ')
+      let line = ''
+      for (const word of words) {
+        const test = line ? `${line} ${word}` : word
+        if (font.widthOfTextAtSize(test, 8) > maxWn) {
           checkSpace(10)
           page.drawText(line, { x: 40, y: y, size: 8, font, color: TEXT })
           y -= 10

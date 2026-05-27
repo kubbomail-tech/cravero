@@ -229,7 +229,10 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                       {item.furnitureType?.name || 'Mueble'}
                       {item.description && <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>· {item.description}</span>}
                     </div>
-                    <span style={{ fontWeight: 600, color: 'var(--primary)' }}>{fmt(item.subtotalTotal)}</span>
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{ fontWeight: 600, color: 'var(--primary)' }}>{fmt(item.subtotalTotal)}</span>
+                      <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>Mat. + Adic. (sin MO)</div>
+                    </div>
                   </div>
                   <div className="section-block-body">
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '0.75rem' }}>
