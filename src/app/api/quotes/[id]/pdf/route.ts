@@ -210,9 +210,11 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
   ty -= 5
   totalRow('TOTAL:', fmt(quote.totalAmount), true)
 
+  // Advance y past the totals box (always, regardless of payment terms)
+  y -= totalsH + 14
+
   // Payment terms
   if (quote.paymentTerms) {
-    y -= totalsH + 14
     checkSpace(20)
     page.drawText('FORMAS DE PAGO:', { x: 40, y: y, size: 7, font: fontBold, color: MUTED })
     y -= 12
