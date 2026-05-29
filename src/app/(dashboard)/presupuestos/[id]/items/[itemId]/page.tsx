@@ -155,6 +155,7 @@ export default function QuoteItemDetailPage({ params }: { params: Promise<{ id: 
   // Modal state
   const [modal, setModal] = useState<'cut' | 'accessory' | 'additional' | null>(null)
   const [saving, setSaving] = useState(false)
+  const [editingCutId, setEditingCutId] = useState<string | null>(null)
 
   const [cutForm, setCutForm] = useState({ description: '', materialId: '', width: 0, height: 0, quantity: 1, edgeBandMaterialId: '', sides: [] as string[], showInPdf: true })
   const [accForm, setAccForm] = useState({ description: '', materialId: '', quantity: 1 })
@@ -181,17 +182,28 @@ export default function QuoteItemDetailPage({ params }: { params: Promise<{ id: 
   const herrajeMats = materials.filter(m => m.category?.seccion === 'HERRAJES')
   const addMats = materials.filter(m => m.category?.seccion === 'ADICIONALES')
 
+  function openEditCut(cut: any) {
+    const sides = (cut.edgeBands ?? []).map((eb: any) => eb.side)
+    const edgeBandMaterialId = cut.edgeBands?.[0]?.materialId ?? ''
+    setCutForm({ description: cut.description ?? '', materialId: cut.materialId ?? '', width: cut.width, height: cut.height, quantity: cut.quantity, edgeBandMaterialId, sides, showInPdf: cut.showInPdf !== false })
+    setEditingCutId(cut.id)
+    setModal('cut')
+  }
+
   async function saveCut() {
     if (!ids) return
     setSaving(true)
     const edgeBands = cutForm.sides.map(side => ({ side, materialId: cutForm.edgeBandMaterialId, quantity: 1 }))
-    const res = await fetch(`/api/quotes/${ids.id}/items/${ids.itemId}/cuts`, {
-      method: 'POST',
+    const url = editingCutId
+      ? `/api/quotes/${ids.id}/items/${ids.itemId}/cuts/${editingCutId}`
+      : `/api/quotes/${ids.id}/items/${ids.itemId}/cuts`
+    const res = await fetch(url, {
+      method: editingCutId ? 'PATCH' : 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...cutForm, edgeBands }),
     })
     setSaving(false)
-    if (res.ok) { setModal(null); setCutForm({ description: '', materialId: '', width: 0, height: 0, quantity: 1, edgeBandMaterialId: '', sides: [], showInPdf: true }); fetchItem() }
+    if (res.ok) { setModal(null); setEditingCutId(null); setCutForm({ description: '', materialId: '', width: 0, height: 0, quantity: 1, edgeBandMaterialId: '', sides: [], showInPdf: true }); fetchItem() }
   }
 
   async function saveAcc() {
@@ -280,7 +292,10 @@ export default function QuoteItemDetailPage({ params }: { params: Promise<{ id: 
                         <td>{cut.edgeBands?.length ?? 0}</td>
                         <td><span className="badge badge-gray">{cut.showInPdf !== false ? 'Visible' : 'Oculto'}</span></td>
                         <td style={{ fontWeight: 600, color: 'var(--primary)' }}>{fmt(cutTotal)}</td>
-                        <td><button className="btn btn-ghost btn-sm" style={{ color: 'var(--danger)' }} onClick={() => deleteCut(cut.id)}>✕</button></td>
+                        <td style={{ display: 'flex', gap: '0.25rem' }}>
+                          <button className="btn btn-ghost btn-sm" onClick={() => openEditCut(cut)}>✎</button>
+                          <button className="btn btn-ghost btn-sm" style={{ color: 'var(--danger)' }} onClick={() => deleteCut(cut.id)}>✕</button>
+                        </td>
                       </tr>
                     )
                   })}
@@ -345,9 +360,9 @@ export default function QuoteItemDetailPage({ params }: { params: Promise<{ id: 
 
       {/* ── Modal Corte ── */}
       {modal === 'cut' && (
-        <div className="modal-overlay" onClick={() => setModal(null)}>
+        <div className="modal-overlay" onClick={() => { setModal(null); setEditingCutId(null) }}>
           <div className="modal" style={{ maxWidth: 560 }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header"><h3>Agregar corte</h3><button className="btn btn-ghost btn-sm" onClick={() => setModal(null)}>×</button></div>
+            <div className="modal-header"><h3>{editingCutId ? 'Editar corte' : 'Agregar corte'}</h3><button className="btn btn-ghost btn-sm" onClick={() => { setModal(null); setEditingCutId(null) }}>×</button></div>
             <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div className="form-group">
                 <label className="form-label">Descripción</label>
@@ -407,7 +422,7 @@ export default function QuoteItemDetailPage({ params }: { params: Promise<{ id: 
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setModal(null)}>Cancelar</button>
               <button className="btn btn-primary" onClick={saveCut} disabled={saving || (cutForm.sides.length > 0 && !cutForm.edgeBandMaterialId)}>
-                {saving ? 'Guardando…' : 'Agregar corte'}
+                {saving ? 'Guardando…' : editingCutId ? 'Guardar cambios' : 'Agregar corte'}
               </button>
             </div>
           </div>
