@@ -7,6 +7,16 @@ export default function ConfiguracionesPage() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [resetStep, setResetStep] = useState<0 | 1 | 2>(0)
+  const [resetting, setResetting] = useState(false)
+
+  async function handleReset() {
+    setResetting(true)
+    await fetch('/api/admin/reset', { method: 'POST' })
+    setResetting(false)
+    setResetStep(0)
+    alert('Sistema reiniciado. Todos los presupuestos, clientes y materiales fueron eliminados.')
+  }
 
   useEffect(() => {
     fetch('/api/settings?key=default_notes')
@@ -97,6 +107,55 @@ export default function ConfiguracionesPage() {
               </span>
             )}
           </div>
+        </div>
+      </div>
+      {/* Zona de peligro */}
+      <div style={{ marginTop: 32, background: 'white', borderRadius: 16, border: '1.5px solid #fca5a5', overflow: 'hidden' }}>
+        <div style={{ padding: '20px 24px', borderBottom: '1px solid #fca5a5', background: '#fff5f5' }}>
+          <h2 style={{ fontSize: '0.9375rem', fontWeight: 700, color: '#dc2626', marginBottom: 4 }}>Zona de peligro</h2>
+          <p style={{ fontSize: '0.8125rem', color: '#7f1d1d' }}>
+            Estas acciones son irreversibles. Se eliminarán todos los presupuestos, clientes y materiales del sistema.
+          </p>
+        </div>
+        <div style={{ padding: 24 }}>
+          {resetStep === 0 && (
+            <button
+              onClick={() => setResetStep(1)}
+              style={{ height: 38, padding: '0 20px', background: 'white', color: '#dc2626', fontWeight: 600, fontSize: '0.875rem', border: '1.5px solid #dc2626', borderRadius: 8, cursor: 'pointer' }}
+            >
+              Reiniciar sistema
+            </button>
+          )}
+          {resetStep === 1 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <p style={{ fontSize: '0.875rem', fontWeight: 600, color: '#dc2626' }}>
+                ¿Estás seguro? Esto eliminará TODOS los presupuestos, clientes y materiales. No hay vuelta atrás.
+              </p>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <button onClick={() => setResetStep(0)} style={{ height: 38, padding: '0 20px', background: 'white', color: 'var(--text)', fontWeight: 600, fontSize: '0.875rem', border: '1.5px solid var(--border)', borderRadius: 8, cursor: 'pointer' }}>
+                  Cancelar
+                </button>
+                <button onClick={() => setResetStep(2)} style={{ height: 38, padding: '0 20px', background: '#dc2626', color: 'white', fontWeight: 600, fontSize: '0.875rem', border: 'none', borderRadius: 8, cursor: 'pointer' }}>
+                  Sí, entiendo — continuar
+                </button>
+              </div>
+            </div>
+          )}
+          {resetStep === 2 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <p style={{ fontSize: '0.875rem', fontWeight: 700, color: '#dc2626' }}>
+                Última confirmación: ¿borrar absolutamente todo?
+              </p>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <button onClick={() => setResetStep(0)} style={{ height: 38, padding: '0 20px', background: 'white', color: 'var(--text)', fontWeight: 600, fontSize: '0.875rem', border: '1.5px solid var(--border)', borderRadius: 8, cursor: 'pointer' }}>
+                  Cancelar
+                </button>
+                <button onClick={handleReset} disabled={resetting} style={{ height: 38, padding: '0 20px', background: '#7f1d1d', color: 'white', fontWeight: 700, fontSize: '0.875rem', border: 'none', borderRadius: 8, cursor: resetting ? 'not-allowed' : 'pointer', opacity: resetting ? 0.7 : 1 }}>
+                  {resetting ? 'Eliminando...' : 'BORRAR TODO'}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
