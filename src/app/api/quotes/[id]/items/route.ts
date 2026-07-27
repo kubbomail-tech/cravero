@@ -1,7 +1,7 @@
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
-import { calculateCutCost, calculateEdgeBandCost, toNumber } from '@/lib/calculations'
+import { calculateCutCost, calculateEdgeBandCost, toNumber, recalcQuoteFinancials } from '@/lib/calculations'
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const session = await auth()
@@ -157,22 +157,20 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     if (quote) {
       const totalLaborBase = allItems.reduce((a, i) => a + toNumber(i.subtotalMaterials) + toNumber(i.subtotalHardware), 0)
       const totalAdditionals = allItems.reduce((a, i) => a + toNumber(i.subtotalAdditionals), 0)
-      const labor = totalLaborBase * (toNumber(quote.laborPercentage) / 100)
-      const discountableBase = totalLaborBase + labor
-      const discountDollar = discountableBase * (toNumber(quote.discountAmount) / 100)
-      const afterDiscount = discountableBase - discountDollar
-      const beforeTax = afterDiscount + totalAdditionals
-      const vat = beforeTax * (toNumber(quote.vatPercentage) / 100)
+      const financials = recalcQuoteFinancials({
+        subtotalMaterials: totalLaborBase,
+        subtotalAdditionals: totalAdditionals,
+        laborPercentage: toNumber(quote.laborPercentage),
+        vatPercentage: toNumber(quote.vatPercentage),
+        discountAmount: toNumber(quote.discountAmount),
+      })
 
       await tx.quote.update({
         where: { id: quoteId },
         data: {
           subtotalMaterials: totalLaborBase,
-          subtotalLabor: labor,
           subtotalAdditionals: totalAdditionals,
-          subtotalBeforeTax: beforeTax,
-          vatAmount: vat,
-          totalAmount: beforeTax + vat,
+          ...financials,
         },
       })
     }

@@ -111,6 +111,21 @@ export const quoteSchema = z.object({
   items: z.array(quoteItemSchema).optional().default([]),
 })
 
+// Partial update — every field optional since PATCH accepts whatever subset the UI sends.
+export const quoteUpdateSchema = z.object({
+  clientId: z.string().min(1).optional(),
+  title: z.string().nullish(),
+  issueDate: z.string().optional(),
+  expirationDate: z.string().nullish().or(z.literal('')),
+  laborPercentage: z.coerce.number().min(0).optional(),
+  vatPercentage: z.coerce.number().min(0).optional(),
+  discountAmount: z.coerce.number().min(0).max(100).optional(),
+  paymentTerms: z.string().nullish(),
+  notes: z.string().nullish(),
+  status: z.enum(['DRAFT', 'ISSUED', 'APPROVED', 'REJECTED', 'EXPIRED']).optional(),
+  pdfShowMaterialAmounts: z.boolean().optional(),
+})
+
 export type ProveedorInput = z.infer<typeof proveedorSchema>
 export type MaterialCategoryInput = z.infer<typeof materialCategorySchema>
 export type LoginInput = z.infer<typeof loginSchema>

@@ -114,6 +114,7 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
   y -= blockH + 4
 
   const laborFactor = 1 + toNumber(quote.laborPercentage) / 100
+  const showMaterialAmounts = quote.pdfShowMaterialAmounts
 
   // Items
   for (const item of quote.items) {
@@ -137,14 +138,18 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
         const edgeBandCost = (cut.edgeBands ?? []).reduce((s: number, eb: any) => s + toNumber(eb.subtotalCost), 0)
         const cutRaw = toNumber(cut.subtotalCost) + edgeBandCost
         page.drawText(String(cut.quantity), { x: 48,      y: y - 6, size: 6.5, font, color: TEXT })
-        page.drawText(fmt(cutRaw),          { x: W - 100, y: y - 6, size: 6.5, font: fontBold, color: TEXT })
+        if (showMaterialAmounts) {
+          page.drawText(fmt(cutRaw), { x: W - 100, y: y - 6, size: 6.5, font: fontBold, color: TEXT })
+        }
         y -= 9
       }
 
       // Total materiales con MO absorbida
       checkSpace(9)
       page.drawText('Total materiales:', { x: 44, y: y - 6, size: 6.5, font: fontBold, color: MUTED })
-      page.drawText(fmt(toNumber(item.subtotalMaterials) * laborFactor), { x: W - 100, y: y - 6, size: 6.5, font: fontBold, color: TEXT })
+      if (showMaterialAmounts) {
+        page.drawText(fmt(toNumber(item.subtotalMaterials) * laborFactor), { x: W - 100, y: y - 6, size: 6.5, font: fontBold, color: TEXT })
+      }
       y -= 9
     }
 
@@ -153,7 +158,9 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
       checkSpace(11)
       y -= 2
       page.drawText('Herrajes y accesorios:', { x: 44, y: y - 6, size: 6.5, font: fontBold, color: MUTED })
-      page.drawText(fmt(toNumber(item.subtotalHardware) * laborFactor), { x: W - 100, y: y - 6, size: 6.5, font: fontBold, color: TEXT })
+      if (showMaterialAmounts) {
+        page.drawText(fmt(toNumber(item.subtotalHardware) * laborFactor), { x: W - 100, y: y - 6, size: 6.5, font: fontBold, color: TEXT })
+      }
       y -= 10
     }
 

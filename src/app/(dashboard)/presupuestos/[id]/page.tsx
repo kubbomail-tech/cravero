@@ -28,7 +28,18 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
   const [showEdit, setShowEdit] = useState(false)
   const [editForm, setEditForm] = useState<any>({})
   const [savingEdit, setSavingEdit] = useState(false)
+  const [clientSearch, setClientSearch] = useState('')
+  const [clientResults, setClientResults] = useState<any[]>([])
+  const [showClientDrop, setShowClientDrop] = useState(false)
+  const [savingPdfToggle, setSavingPdfToggle] = useState(false)
   const searchParams = useSearchParams()
+
+  useEffect(() => {
+    if (clientSearch.length > 1)
+      fetch(`/api/clients?search=${encodeURIComponent(clientSearch)}&isActive=true`)
+        .then(r => r.json()).then(setClientResults)
+    else setClientResults([])
+  }, [clientSearch])
 
 
 
@@ -46,6 +57,8 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
       setQuote(q)
       setNotes(q.notes ?? '')
       setEditForm({
+        clientId: q.client.id,
+        clientName: q.client.fullName,
         title: q.title ?? '',
         issueDate: q.issueDate?.split('T')[0] ?? '',
         expirationDate: q.expirationDate?.split('T')[0] ?? '',
@@ -103,18 +116,39 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
   async function handleSaveEdit() {
     if (!id) return
     setSavingEdit(true)
-    const res = await fetch(`/api/quotes/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(editForm),
-    })
-    if (res.ok) {
-      const q = await fetch(`/api/quotes/${id}`).then(r => r.json())
-      setQuote(q)
-      setNotes(q.notes ?? '')
-      setShowEdit(false)
+    try {
+      const res = await fetch(`/api/quotes/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editForm),
+      })
+      if (res.ok) {
+        const q = await fetch(`/api/quotes/${id}`).then(r => r.json())
+        setQuote(q)
+        setNotes(q.notes ?? '')
+        setShowEdit(false)
+      } else {
+        const err = await res.json().catch(() => ({}))
+        alert(err?.error ? `Error al guardar: ${JSON.stringify(err.error).substring(0, 200)}` : 'Error al guardar los cambios')
+      }
+    } finally {
+      setSavingEdit(false)
     }
-    setSavingEdit(false)
+  }
+
+  async function handleTogglePdfSetting(value: boolean) {
+    if (!id) return
+    setSavingPdfToggle(true)
+    try {
+      const res = await fetch(`/api/quotes/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pdfShowMaterialAmounts: value }),
+      })
+      if (res.ok) setQuote((q: any) => ({ ...q, pdfShowMaterialAmounts: value }))
+    } finally {
+      setSavingPdfToggle(false)
+    }
   }
 
   async function handleSaveNotes() {
@@ -179,11 +213,9 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
           <button className="btn btn-secondary" onClick={handleDownloadPdf} disabled={generatingPdf}>
             {generatingPdf ? <span className="spinner spinner-dark" /> : null} PDF
           </button>
-          {quote.status === 'DRAFT' && (
-            <button className="btn btn-secondary" onClick={() => setShowEdit(true)}>
-              Editar datos
-            </button>
-          )}
+          <button className="btn btn-secondary" onClick={() => setShowEdit(true)}>
+            Editar datos
+          </button>
           {quote.status === 'DRAFT' && (
             <button className="btn btn-primary" onClick={() => handleStatusChange('ISSUED')} disabled={loading}>
               Emitir
@@ -300,6 +332,15 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                   <span>{parseFloat(String(quote.discountAmount))}%</span>
                 </div>
               )}
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid var(--border)', cursor: savingPdfToggle ? 'not-allowed' : 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={!!quote.pdfShowMaterialAmounts}
+                  disabled={savingPdfToggle}
+                  onChange={e => handleTogglePdfSetting(e.target.checked)}
+                />
+                <span style={{ fontSize: '0.8125rem' }}>Mostrar importes de Cortes/Cantos y Herrajes en el PDF</span>
+              </label>
             </div>
           </div>
 
@@ -432,19 +473,61 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
             </div>
             <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div className="form-group">
-                <label className="form-label">Nombre del trabajo</label>
+                <label className="form-label">Cliente</label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    className="form-input"
+                    placeholder="Buscar cliente…"
+                    value={editForm.clientName || clientSearch}
+                    onChange={e => {
+                      setClientSearch(e.target.value)
+                      setShowClientDrop(true)
+                      setEditForm((f: any) => ({ ...f, clientId: '', clientName: '' }))
+                    }}
+                    onFocus={() => setShowClientDrop(true)}
+                  />
+                  {showClientDrop && clientSearch.length > 1 && (
+                    <div style={{
+                      position: 'absolute', top: '100%', left: 0, width: '100%', marginTop: 4,
+                      background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8,
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)', zIndex: 50, overflow: 'hidden', maxHeight: 220, overflowY: 'auto',
+                    }}>
+                      {clientResults.length === 0 ? (
+                        <div style={{ padding: '0.625rem 0.875rem', fontSize: '0.8125rem', color: 'var(--text-muted)' }}>Sin resultados</div>
+                      ) : clientResults.map((c: any) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          style={{ display: 'block', width: '100%', textAlign: 'left', padding: '0.625rem 0.875rem', border: 'none', background: 'transparent', cursor: 'pointer' }}
+                          onClick={() => {
+                            setEditForm((f: any) => ({ ...f, clientId: c.id, clientName: c.fullName }))
+                            setClientSearch(c.fullName)
+                            setShowClientDrop(false)
+                          }}
+                        >
+                          <div style={{ fontSize: '0.8125rem', fontWeight: 600 }}>{c.fullName}</div>
+                          {c.businessName && <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{c.businessName}</div>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Nombre del trabajo {quote.status !== 'DRAFT' && <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>(bloqueado, presupuesto ya emitido)</span>}</label>
                 <input className="form-input" placeholder="Ej: Amoblamiento vestidor y 2 baños…"
+                  disabled={quote.status !== 'DRAFT'}
                   value={editForm.title} onChange={e => setEditForm((f: any) => ({ ...f, title: e.target.value }))} />
               </div>
               <div className="form-grid-2">
                 <div className="form-group">
                   <label className="form-label">Fecha de emisión</label>
-                  <input type="date" className="form-input" value={editForm.issueDate}
+                  <input type="date" className="form-input" disabled={quote.status !== 'DRAFT'} value={editForm.issueDate}
                     onChange={e => setEditForm((f: any) => ({ ...f, issueDate: e.target.value }))} />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Fecha de vencimiento</label>
-                  <input type="date" className="form-input" value={editForm.expirationDate}
+                  <input type="date" className="form-input" disabled={quote.status !== 'DRAFT'} value={editForm.expirationDate}
                     onChange={e => setEditForm((f: any) => ({ ...f, expirationDate: e.target.value }))} />
                 </div>
               </div>
@@ -468,13 +551,14 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
               <div className="form-group">
                 <label className="form-label">Formas de pago</label>
                 <textarea className="form-textarea" rows={3} placeholder="Opciones de pago…"
+                  disabled={quote.status !== 'DRAFT'}
                   value={editForm.paymentTerms}
                   onChange={e => setEditForm((f: any) => ({ ...f, paymentTerms: e.target.value }))} />
               </div>
             </div>
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setShowEdit(false)}>Cancelar</button>
-              <button className="btn btn-primary" onClick={handleSaveEdit} disabled={savingEdit}>
+              <button className="btn btn-primary" onClick={handleSaveEdit} disabled={savingEdit || !editForm.clientId}>
                 {savingEdit ? 'Guardando...' : 'Guardar cambios'}
               </button>
             </div>

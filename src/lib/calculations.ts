@@ -1,4 +1,5 @@
 import type { Decimal } from '@prisma/client/runtime/library'
+import type { Prisma, PrismaClient } from '@prisma/client'
 
 export function toNumber(value: Decimal | number | null | undefined): number {
   if (value === null || value === undefined) return 0
@@ -72,8 +73,37 @@ export function calculateEdgeBandCost(params: {
   return { totalLength, subtotalCost }
 }
 
-export function generateQuoteNumber(count: number): string {
+// Uses the last existing quote number for the current year (instead of a row
+// count) so deleted quotes don't leave gaps that collide with reused numbers.
+export async function getNextQuoteNumber(tx: PrismaClient | Prisma.TransactionClient): Promise<string> {
   const year = new Date().getFullYear()
-  const padded = String(count + 1).padStart(4, '0')
-  return `P-${year}-${padded}`
+  const lastQuote = await tx.quote.findFirst({
+    where: { quoteNumber: { startsWith: `P-${year}-` } },
+    orderBy: { quoteNumber: 'desc' },
+    select: { quoteNumber: true },
+  })
+  const nextSeq = lastQuote ? parseInt(lastQuote.quoteNumber.split('-')[2]) + 1 : 1
+  return `P-${year}-${String(nextSeq).padStart(4, '0')}`
+}
+
+export function recalcQuoteFinancials(params: {
+  subtotalMaterials: number
+  subtotalAdditionals: number
+  laborPercentage: number
+  vatPercentage: number
+  discountAmount: number
+}) {
+  const labor = params.subtotalMaterials * (params.laborPercentage / 100)
+  const discountableBase = params.subtotalMaterials + labor
+  const discountDollar = discountableBase * (params.discountAmount / 100)
+  const afterDiscount = discountableBase - discountDollar
+  const beforeTax = afterDiscount + params.subtotalAdditionals
+  const vat = beforeTax * (params.vatPercentage / 100)
+
+  return {
+    subtotalLabor: labor,
+    subtotalBeforeTax: beforeTax,
+    vatAmount: vat,
+    totalAmount: beforeTax + vat,
+  }
 }

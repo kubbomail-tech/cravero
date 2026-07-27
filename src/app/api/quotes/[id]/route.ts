@@ -1,8 +1,8 @@
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
-import { quoteSchema } from '@/lib/validations'
-import { toNumber } from '@/lib/calculations'
+import { quoteUpdateSchema } from '@/lib/validations'
+import { toNumber, recalcQuoteFinancials } from '@/lib/calculations'
 
 export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const session = await auth()
@@ -37,19 +37,46 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 
   const { id } = await ctx.params
   const body = await req.json()
+  const parsed = quoteUpdateSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.issues }, { status: 400 })
+  }
+  const data = parsed.data
 
-  // Allow partial updates including status
-  const quote = await prisma.quote.update({
-    where: { id },
-    data: {
-      ...body,
-      ...(body.issueDate && { issueDate: new Date(body.issueDate) }),
-      ...(body.expirationDate && { expirationDate: new Date(body.expirationDate) }),
-    },
-    include: { client: true },
-  })
+  try {
+    const existing = await prisma.quote.findUnique({ where: { id } })
+    if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-  return NextResponse.json(quote)
+    // Recalculate financials whenever a commercial parameter changes — the
+    // materials/additionals subtotals themselves are untouched by this endpoint.
+    const needsRecalc = ['laborPercentage', 'vatPercentage', 'discountAmount'].some(k => k in data)
+    const financials = needsRecalc
+      ? recalcQuoteFinancials({
+          subtotalMaterials: toNumber(existing.subtotalMaterials),
+          subtotalAdditionals: toNumber(existing.subtotalAdditionals),
+          laborPercentage: toNumber(data.laborPercentage ?? existing.laborPercentage),
+          vatPercentage: toNumber(data.vatPercentage ?? existing.vatPercentage),
+          discountAmount: toNumber(data.discountAmount ?? existing.discountAmount),
+        })
+      : {}
+
+    const quote = await prisma.quote.update({
+      where: { id },
+      data: {
+        ...data,
+        ...(data.issueDate && { issueDate: new Date(data.issueDate) }),
+        ...(data.expirationDate && { expirationDate: new Date(data.expirationDate) }),
+        ...financials,
+      },
+      include: { client: true },
+    })
+
+    return NextResponse.json(quote)
+  } catch (error) {
+    console.error('[PATCH /api/quotes/[id]]', error)
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    return NextResponse.json({ error: message }, { status: 500 })
+  }
 }
 
 export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {

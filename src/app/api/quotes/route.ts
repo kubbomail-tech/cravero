@@ -2,7 +2,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
 import { quoteSchema } from '@/lib/validations'
-import { generateQuoteNumber, toNumber, calculateCutCost } from '@/lib/calculations'
+import { toNumber, calculateCutCost, getNextQuoteNumber, recalcQuoteFinancials } from '@/lib/calculations'
 import { QuoteStatus } from '@prisma/client'
 
 export async function GET(req: NextRequest) {
@@ -46,14 +46,7 @@ export async function POST(req: NextRequest) {
   try {
   return await prisma.$transaction(async (tx) => {
     // 1. Prepare Quote Number — use last existing number to avoid gaps from deletions
-    const year = new Date().getFullYear()
-    const lastQuote = await tx.quote.findFirst({
-      where: { quoteNumber: { startsWith: `P-${year}-` } },
-      orderBy: { quoteNumber: 'desc' },
-      select: { quoteNumber: true },
-    })
-    const nextSeq = lastQuote ? parseInt(lastQuote.quoteNumber.split('-')[2]) + 1 : 1
-    const quoteNumber = `P-${year}-${String(nextSeq).padStart(4, '0')}`
+    const quoteNumber = await getNextQuoteNumber(tx)
 
     // 2. Fetch all materials needed for snapshots
     const materialIds = new Set<string>()
@@ -183,13 +176,13 @@ export async function POST(req: NextRequest) {
     })
 
     // 4. Final Quote Totals — additionals excluded from labor base and discount
-    const labor = quoteSubtotalMaterials * (toNumber(quoteData.laborPercentage) / 100)
-    const discountableBase = quoteSubtotalMaterials + labor
-    const discountDollar = discountableBase * (toNumber(quoteData.discountAmount) / 100)
-    const afterDiscount = discountableBase - discountDollar
-    const beforeTax = afterDiscount + quoteSubtotalAdditionals
-    const vat = beforeTax * (toNumber(quoteData.vatPercentage) / 100)
-    const total = beforeTax + vat
+    const financials = recalcQuoteFinancials({
+      subtotalMaterials: quoteSubtotalMaterials,
+      subtotalAdditionals: quoteSubtotalAdditionals,
+      laborPercentage: toNumber(quoteData.laborPercentage),
+      vatPercentage: toNumber(quoteData.vatPercentage),
+      discountAmount: toNumber(quoteData.discountAmount),
+    })
 
     const quote = await tx.quote.create({
       data: {
@@ -204,11 +197,8 @@ export async function POST(req: NextRequest) {
         paymentTerms: quoteData.paymentTerms,
         notes: quoteData.notes,
         subtotalMaterials: quoteSubtotalMaterials,
-        subtotalLabor: labor,
         subtotalAdditionals: quoteSubtotalAdditionals,
-        subtotalBeforeTax: beforeTax,
-        vatAmount: vat,
-        totalAmount: total,
+        ...financials,
         createdBy: (session.user as any).id,
         items: { create: itemsToCreate }
       },

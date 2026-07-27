@@ -57,8 +57,13 @@ export default function PresupuestosPage() {
 
   async function handleDuplicate(id: string) {
     const res = await fetch(`/api/quotes/${id}/duplicate`, { method: 'POST' })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      alert(err?.error ? `Error al duplicar: ${err.error}` : 'Error al duplicar el presupuesto')
+      return
+    }
     const d = await res.json()
-    router.push(`/presupuestos/${d.id}`)
+    router.push(`/presupuestos/${d.id}?edit=1`)
   }
 
   async function handleChangeStatus(id: string, status: string) {
@@ -137,9 +142,7 @@ export default function PresupuestosPage() {
                 <td>
                   <div className="flex gap-1">
                     <Link href={`/presupuestos/${q.id}`} className="btn btn-ghost btn-sm">Ver</Link>
-                    {q.status === 'DRAFT' && (
-                      <Link href={`/presupuestos/${q.id}?edit=1`} className="btn btn-ghost btn-sm">Editar</Link>
-                    )}
+                    <Link href={`/presupuestos/${q.id}?edit=1`} className="btn btn-ghost btn-sm">Editar</Link>
                     <button className="btn btn-ghost btn-sm" onClick={() => handleDuplicate(q.id)} title="Duplicar">
                       <CopyIcon />
                     </button>

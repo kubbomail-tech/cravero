@@ -205,6 +205,7 @@ model Quote {
   discountAmount   Decimal     @default(0) @map("discount_amount") @db.Decimal(12, 2)
   paymentTerms     String?     @map("payment_terms")
   notes            String?
+  pdfShowMaterialAmounts Boolean @default(false) @map("pdf_show_material_amounts")
   subtotalMaterials   Decimal   @default(0) @map("subtotal_materials") @db.Decimal(12, 2)
   subtotalLabor       Decimal   @default(0) @map("subtotal_labor") @db.Decimal(12, 2)
   subtotalAdditionals Decimal   @default(0) @map("subtotal_additionals") @db.Decimal(12, 2)
