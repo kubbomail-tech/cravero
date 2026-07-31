@@ -114,7 +114,25 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
   y -= blockH + 4
 
   const laborFactor = 1 + toNumber(quote.laborPercentage) / 100
-  const showMaterialAmounts = quote.pdfShowMaterialAmounts
+
+  function drawVisibilitySection(label: string, rows: Array<{ qty: number; text: string; amount: number; visibility: string }>) {
+    const visible = rows.filter(r => r.visibility !== 'HIDDEN')
+    if (visible.length === 0) return
+    checkSpace(11)
+    y -= 2
+    page.drawText(label, { x: 44, y: y - 6, size: 6.5, font: fontBold, color: MUTED })
+    y -= 10
+
+    for (const row of visible) {
+      checkSpace(9)
+      page.drawText(`×${row.qty}`, { x: 48, y: y - 6, size: 6.5, font, color: TEXT })
+      page.drawText(row.text.substring(0, 55), { x: 70, y: y - 6, size: 6.5, font, color: TEXT })
+      if (row.visibility === 'DESCRIPTION_AND_PRICE') {
+        page.drawText(fmt(row.amount), { x: W - 100, y: y - 6, size: 6.5, font: fontBold, color: TEXT })
+      }
+      y -= 9
+    }
+  }
 
   // Items
   for (const item of quote.items) {
@@ -130,59 +148,25 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
     page.drawText(fmt(itemClientTotal), { x: W - 100, y: y - 12, size: 8, font: fontBold, color: WHITE })
     y -= 21
 
-    // Cuts table
-    if (item.cuts.length > 0) {
-      for (const cut of item.cuts) {
-        if (cut.showInPdf === false) continue
-        checkSpace(9)
-        const edgeBandCost = (cut.edgeBands ?? []).reduce((s: number, eb: any) => s + toNumber(eb.subtotalCost), 0)
-        const cutRaw = toNumber(cut.subtotalCost) + edgeBandCost
-        page.drawText(String(cut.quantity), { x: 48,      y: y - 6, size: 6.5, font, color: TEXT })
-        if (showMaterialAmounts) {
-          page.drawText(fmt(cutRaw), { x: W - 100, y: y - 6, size: 6.5, font: fontBold, color: TEXT })
-        }
-        y -= 9
-      }
+    // Cortes y piezas
+    drawVisibilitySection('Cortes y piezas:', item.cuts.map((cut: any) => {
+      const edgeBandCost = (cut.edgeBands ?? []).reduce((s: number, eb: any) => s + toNumber(eb.subtotalCost), 0)
+      const label = `${cut.materialNameSnapshot ?? ''}${cut.description ? ' · ' + cut.description : ''}`
+      return { qty: cut.quantity, text: label, amount: toNumber(cut.subtotalCost) + edgeBandCost, visibility: cut.pdfVisibility }
+    }))
 
-      // Total materiales con MO absorbida
-      checkSpace(9)
-      page.drawText('Total materiales:', { x: 44, y: y - 6, size: 6.5, font: fontBold, color: MUTED })
-      if (showMaterialAmounts) {
-        page.drawText(fmt(toNumber(item.subtotalMaterials) * laborFactor), { x: W - 100, y: y - 6, size: 6.5, font: fontBold, color: TEXT })
-      }
-      y -= 9
-    }
-
-    // Herrajes con MO absorbida
-    if (toNumber(item.subtotalHardware) > 0) {
-      checkSpace(11)
-      y -= 2
-      page.drawText('Herrajes y accesorios:', { x: 44, y: y - 6, size: 6.5, font: fontBold, color: MUTED })
-      if (showMaterialAmounts) {
-        page.drawText(fmt(toNumber(item.subtotalHardware) * laborFactor), { x: W - 100, y: y - 6, size: 6.5, font: fontBold, color: TEXT })
-      }
-      y -= 10
-    }
+    // Herrajes y accesorios
+    drawVisibilitySection('Herrajes y accesorios:', item.accessories.map((acc: any) => {
+      const label = `${acc.materialNameSnapshot ?? ''}${acc.description ? ' · ' + acc.description : ''}`
+      return { qty: acc.quantity, text: label, amount: toNumber(acc.subtotalCost), visibility: acc.pdfVisibility }
+    }))
 
     // Adicionales — sin MO
     const additionals = (item as any).additionals ?? []
-    if (additionals.length > 0) {
-      checkSpace(11)
-      y -= 2
-      page.drawText('Adicionales:', { x: 44, y: y - 6, size: 6.5, font: fontBold, color: MUTED })
-      y -= 10
-
-      for (const add of additionals) {
-        checkSpace(9)
-        const label = `${add.materialNameSnapshot ?? ''} ${add.description ? '· ' + add.description : ''}`
-        page.drawText(`×${add.quantity}`, { x: 48,  y: y - 6, size: 6.5, font, color: TEXT })
-        page.drawText(label.substring(0, 55), { x: 70, y: y - 6, size: 6.5, font, color: TEXT })
-        if (add.showPrice) {
-          page.drawText(fmt(add.subtotalCost), { x: W - 100, y: y - 6, size: 6.5, font: fontBold, color: TEXT })
-        }
-        y -= 9
-      }
-    }
+    drawVisibilitySection('Adicionales:', additionals.map((add: any) => {
+      const label = `${add.materialNameSnapshot ?? ''}${add.description ? ' · ' + add.description : ''}`
+      return { qty: add.quantity, text: label, amount: toNumber(add.subtotalCost), visibility: add.pdfVisibility }
+    }))
 
     y -= 4
   }

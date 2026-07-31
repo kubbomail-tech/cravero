@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
           areaPerUnit: calc.areaPerUnit,
           totalArea: calc.totalArea,
           subtotalCost: calc.subtotalCost,
-          showInPdf: cut.showInPdf ?? false,
+          pdfVisibility: cut.pdfVisibility ?? 'HIDDEN',
           edgeBands: { create: edgeBandsToCreate }
         }
       })
@@ -136,6 +136,7 @@ export async function POST(req: NextRequest) {
           description: acc.description,
           quantity: acc.quantity,
           subtotalCost,
+          pdfVisibility: acc.pdfVisibility ?? 'HIDDEN',
         }
       })
 
@@ -154,7 +155,7 @@ export async function POST(req: NextRequest) {
           description: add.description,
           quantity: add.quantity,
           subtotalCost,
-          showPrice: add.showPrice ?? true,
+          pdfVisibility: add.pdfVisibility ?? 'DESCRIPTION_AND_PRICE',
         }
       })
 

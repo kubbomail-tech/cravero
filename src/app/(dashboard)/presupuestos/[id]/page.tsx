@@ -31,7 +31,6 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
   const [clientSearch, setClientSearch] = useState('')
   const [clientResults, setClientResults] = useState<any[]>([])
   const [showClientDrop, setShowClientDrop] = useState(false)
-  const [savingPdfToggle, setSavingPdfToggle] = useState(false)
   const searchParams = useSearchParams()
 
   useEffect(() => {
@@ -133,21 +132,6 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
       }
     } finally {
       setSavingEdit(false)
-    }
-  }
-
-  async function handleTogglePdfSetting(value: boolean) {
-    if (!id) return
-    setSavingPdfToggle(true)
-    try {
-      const res = await fetch(`/api/quotes/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pdfShowMaterialAmounts: value }),
-      })
-      if (res.ok) setQuote((q: any) => ({ ...q, pdfShowMaterialAmounts: value }))
-    } finally {
-      setSavingPdfToggle(false)
     }
   }
 
@@ -332,15 +316,6 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
                   <span>{parseFloat(String(quote.discountAmount))}%</span>
                 </div>
               )}
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid var(--border)', cursor: savingPdfToggle ? 'not-allowed' : 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={!!quote.pdfShowMaterialAmounts}
-                  disabled={savingPdfToggle}
-                  onChange={e => handleTogglePdfSetting(e.target.checked)}
-                />
-                <span style={{ fontSize: '0.8125rem' }}>Mostrar importes de Cortes/Cantos y Herrajes en el PDF</span>
-              </label>
             </div>
           </div>
 

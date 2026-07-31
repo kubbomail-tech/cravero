@@ -44,6 +44,12 @@ enum EdgeSide {
   RIGHT
 }
 
+enum PdfVisibility {
+  HIDDEN
+  DESCRIPTION
+  DESCRIPTION_AND_PRICE
+}
+
 model User {
   id           String   @id @default(cuid())
   name         String
@@ -205,7 +211,6 @@ model Quote {
   discountAmount   Decimal     @default(0) @map("discount_amount") @db.Decimal(12, 2)
   paymentTerms     String?     @map("payment_terms")
   notes            String?
-  pdfShowMaterialAmounts Boolean @default(false) @map("pdf_show_material_amounts")
   subtotalMaterials   Decimal   @default(0) @map("subtotal_materials") @db.Decimal(12, 2)
   subtotalLabor       Decimal   @default(0) @map("subtotal_labor") @db.Decimal(12, 2)
   subtotalAdditionals Decimal   @default(0) @map("subtotal_additionals") @db.Decimal(12, 2)
@@ -263,7 +268,7 @@ model QuoteItemCut {
   totalArea               Decimal  @default(0) @map("total_area") @db.Decimal(12, 6)   // m2
   notes                   String?
   subtotalCost            Decimal  @default(0) @map("subtotal_cost") @db.Decimal(12, 2)
-  showInPdf               Boolean  @default(true) @map("show_in_pdf")
+  pdfVisibility           PdfVisibility @default(HIDDEN) @map("pdf_visibility")
   createdAt               DateTime @default(now()) @map("created_at")
   updatedAt               DateTime @updatedAt @map("updated_at")
 
@@ -303,6 +308,7 @@ model QuoteItemAccessory {
   description             String?
   quantity                Int      @default(1)
   subtotalCost            Decimal  @default(0) @map("subtotal_cost") @db.Decimal(12, 2)
+  pdfVisibility           PdfVisibility @default(HIDDEN) @map("pdf_visibility")
   createdAt               DateTime @default(now()) @map("created_at")
   updatedAt               DateTime @updatedAt @map("updated_at")
 
@@ -321,7 +327,7 @@ model QuoteItemAdditional {
   description              String?
   quantity                 Int      @default(1)
   subtotalCost             Decimal  @default(0) @map("subtotal_cost") @db.Decimal(12, 2)
-  showPrice                Boolean  @default(true) @map("show_price")
+  pdfVisibility            PdfVisibility @default(DESCRIPTION_AND_PRICE) @map("pdf_visibility")
   applyLabor               Boolean  @default(false) @map("apply_labor")
   createdAt                DateTime @default(now()) @map("created_at")
   updatedAt                DateTime @updatedAt @map("updated_at")

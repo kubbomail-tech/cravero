@@ -82,7 +82,7 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
               totalArea: cut.totalArea,
               notes: cut.notes,
               subtotalCost: cut.subtotalCost,
-              showInPdf: cut.showInPdf,
+              pdfVisibility: cut.pdfVisibility,
             },
           })
 
@@ -113,6 +113,7 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
               description: acc.description,
               quantity: acc.quantity,
               subtotalCost: acc.subtotalCost,
+              pdfVisibility: acc.pdfVisibility,
             },
           })
         }
@@ -127,7 +128,7 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
               description: add.description,
               quantity: add.quantity,
               subtotalCost: add.subtotalCost,
-              showPrice: add.showPrice,
+              pdfVisibility: add.pdfVisibility,
               applyLabor: add.applyLabor,
             },
           })

@@ -8,13 +8,14 @@ type Material = { id: string; name: string; unitCost: number; category: { name: 
 type FurnitureType = { id: string; name: string }
 type WizardStep = 'type' | 'cuts' | 'hardware' | 'additionals' | 'confirm'
 
+type PdfVisibility = 'HIDDEN' | 'DESCRIPTION' | 'DESCRIPTION_AND_PRICE'
 interface CutItem {
   materialId: string; description: string; width: number; height: number
-  quantity: number; edgeBandMaterialId: string; showInPdf: boolean
+  quantity: number; edgeBandMaterialId: string; pdfVisibility: PdfVisibility
   edgeBands: { side: string; materialId: string; quantity: number }[]
 }
-interface AccessoryItem { materialId: string; description: string; quantity: number }
-interface AdditionalItem { materialId: string; description: string; quantity: number; showPrice: boolean; priceMode: 'calc' | 'fixed'; manualPrice: number }
+interface AccessoryItem { materialId: string; description: string; quantity: number; pdfVisibility: PdfVisibility }
+interface AdditionalItem { materialId: string; description: string; quantity: number; pdfVisibility: PdfVisibility; priceMode: 'calc' | 'fixed'; manualPrice: number }
 interface FurnitureItem {
   furnitureTypeId: string; name: string; description: string; quantity: number
   cuts: CutItem[]; accessories: AccessoryItem[]; additionals: AdditionalItem[]
@@ -159,7 +160,7 @@ export default function NuevoPresupuestoPage() {
     setDraft({ furnitureTypeId: ft.id, name: ft.name, description: '', quantity: 1, cuts: [], accessories: [], additionals: [] })
     setWizardStep('cuts')
   }
-  const addCut = () => setDraft(d => d ? ({ ...d, cuts: [...d.cuts, { materialId: '', description: 'Pieza nueva', width: 0, height: 0, quantity: 1, edgeBandMaterialId: '', showInPdf: false, edgeBands: [] }] }) : d)
+  const addCut = () => setDraft(d => d ? ({ ...d, cuts: [...d.cuts, { materialId: '', description: 'Pieza nueva', width: 0, height: 0, quantity: 1, edgeBandMaterialId: '', pdfVisibility: 'HIDDEN' as const, edgeBands: [] }] }) : d)
   const updateCut = (i: number, p: Partial<CutItem>) => setDraft(d => { if (!d) return d; const c = [...d.cuts]; c[i] = { ...c[i], ...p }; return { ...d, cuts: c } })
   const removeCut = (i: number) => setDraft(d => d ? ({ ...d, cuts: d.cuts.filter((_, j) => j !== i) }) : d)
   const toggleEdge = (cIdx: number, side: string) => {
@@ -175,10 +176,10 @@ export default function NuevoPresupuestoPage() {
     if (!draft) return
     updateCut(cIdx, { edgeBandMaterialId: matId, edgeBands: draft.cuts[cIdx].edgeBands.map(eb => ({ ...eb, materialId: matId })) })
   }
-  const addAcc = () => setDraft(d => d ? ({ ...d, accessories: [...d.accessories, { materialId: '', description: 'Accesorio', quantity: 1 }] }) : d)
+  const addAcc = () => setDraft(d => d ? ({ ...d, accessories: [...d.accessories, { materialId: '', description: 'Accesorio', quantity: 1, pdfVisibility: 'HIDDEN' as const }] }) : d)
   const updateAcc = (i: number, p: Partial<AccessoryItem>) => setDraft(d => { if (!d) return d; const a = [...d.accessories]; a[i] = { ...a[i], ...p }; return { ...d, accessories: a } })
   const removeAcc = (i: number) => setDraft(d => d ? ({ ...d, accessories: d.accessories.filter((_, j) => j !== i) }) : d)
-  const addAdditional = () => setDraft(d => d ? ({ ...d, additionals: [...d.additionals, { materialId: '', description: '', quantity: 1, showPrice: true, priceMode: 'calc' as const, manualPrice: 0 }] }) : d)
+  const addAdditional = () => setDraft(d => d ? ({ ...d, additionals: [...d.additionals, { materialId: '', description: '', quantity: 1, pdfVisibility: 'DESCRIPTION_AND_PRICE' as const, priceMode: 'calc' as const, manualPrice: 0 }] }) : d)
   const updateAdditional = (i: number, p: Partial<AdditionalItem>) => setDraft(d => { if (!d) return d; const a = [...d.additionals]; a[i] = { ...a[i], ...p }; return { ...d, additionals: a } })
   const removeAdditional = (i: number) => setDraft(d => d ? ({ ...d, additionals: d.additionals.filter((_, j) => j !== i) }) : d)
   const confirmItem = () => { if (draft) { setItems(p => [...p, draft]); setDraft(null); setWizardStep(null) } }
@@ -192,10 +193,7 @@ export default function NuevoPresupuestoPage() {
         ...form,
         items: items.map(({ name: _name, ...item }) => ({
           ...item,
-          cuts: item.cuts.map(({ edgeBandMaterialId: _ebm, showInPdf, ...cut }) => ({
-            ...cut,
-            showInPdf,
-          })),
+          cuts: item.cuts.map(({ edgeBandMaterialId: _ebm, ...cut }) => cut),
           additionals: item.additionals.map(({ priceMode, manualPrice, ...add }) => ({
             ...add,
             ...(priceMode === 'fixed' ? { manualPrice } : {}),
@@ -783,12 +781,15 @@ export default function NuevoPresupuestoPage() {
                             )}
                             <div className="col-span-1 flex flex-col items-center gap-1">
                               <label className={lbl + ' text-center'}>PDF</label>
-                              <button
-                                onClick={() => updateAdditional(aIdx, { showPrice: !add.showPrice })}
-                                title={add.showPrice ? 'Precio visible en PDF' : 'Precio oculto en PDF'}
-                                style={{ width: 30, height: 30, borderRadius: '0.5rem', background: 'none', border: '1.5px solid', borderColor: add.showPrice ? '#198e85' : '#e2e8f0', color: add.showPrice ? '#198e85' : '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
-                                {add.showPrice ? <EyeIcon size={14} /> : <EyeOffIcon size={14} />}
-                              </button>
+                              <select
+                                value={add.pdfVisibility}
+                                onChange={e => updateAdditional(aIdx, { pdfVisibility: e.target.value as PdfVisibility })}
+                                title="Visibilidad en PDF"
+                                style={{ width: '100%', height: 30, fontSize: 9, fontWeight: 700, borderRadius: '0.5rem', border: '1.5px solid #e2e8f0', background: 'white', color: '#198e85', textAlign: 'center', cursor: 'pointer' }}>
+                                <option value="HIDDEN">Oculto</option>
+                                <option value="DESCRIPTION">Desc.</option>
+                                <option value="DESCRIPTION_AND_PRICE">Desc.+$</option>
+                              </select>
                             </div>
                             <div className="col-span-1 flex justify-end items-end">
                               <button onClick={() => removeAdditional(aIdx)} className={btnDanger}>×</button>
@@ -865,8 +866,8 @@ export default function NuevoPresupuestoPage() {
                                   <p className="text-sm font-semibold text-slate-900">{mat?.name ?? a.description ?? '—'}</p>
                                   <div className="flex items-center gap-2">
                                     <span className="text-xs font-medium text-slate-400">×{a.quantity}</span>
-                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md" style={{ background: a.showPrice ? '#f0faf9' : 'transparent', color: a.showPrice ? '#198e85' : '#94a3b8' }}>
-                                      {a.showPrice ? 'precio visible' : 'precio oculto'}
+                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md" style={{ background: a.pdfVisibility !== 'HIDDEN' ? '#f0faf9' : 'transparent', color: a.pdfVisibility !== 'HIDDEN' ? '#198e85' : '#94a3b8' }}>
+                                      {a.pdfVisibility === 'DESCRIPTION_AND_PRICE' ? 'desc. + precio' : a.pdfVisibility === 'DESCRIPTION' ? 'solo descripción' : 'oculto en PDF'}
                                     </span>
                                   </div>
                                 </div>
@@ -1127,10 +1128,4 @@ function FurnitureIcon() {
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 12h18M5 6h14a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2z" />
     </svg>
   )
-}
-function EyeIcon({ size = 16 }: { size?: number }) {
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-}
-function EyeOffIcon({ size = 16 }: { size?: number }) {
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
 }

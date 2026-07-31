@@ -9,7 +9,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { id: quoteId, itemId, cutId } = await ctx.params
-  const { description, materialId, width, height, quantity, showInPdf, edgeBands } = await req.json()
+  const { description, materialId, width, height, quantity, pdfVisibility, edgeBands } = await req.json()
 
   await prisma.$transaction(async tx => {
     let unitCost = 0
@@ -29,7 +29,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 
     await tx.quoteItemCut.update({
       where: { id: cutId },
-      data: { materialId: materialId || null, materialNameSnapshot, materialUnitCostSnapshot, description, width, height, quantity: quantity ?? 1, areaPerUnit, totalArea, subtotalCost, showInPdf: showInPdf ?? true },
+      data: { materialId: materialId || null, materialNameSnapshot, materialUnitCostSnapshot, description, width, height, quantity: quantity ?? 1, areaPerUnit, totalArea, subtotalCost, pdfVisibility: pdfVisibility ?? 'HIDDEN' },
     })
 
     await tx.quoteItemEdgeBand.deleteMany({ where: { quoteItemCutId: cutId } })

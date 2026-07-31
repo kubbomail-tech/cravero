@@ -9,13 +9,32 @@ type Unit = { id: string; code: string; name: string }
 const fmt = (n: any) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(parseFloat(String(n)))
 const SIDES = [['TOP','Sup'],['BOTTOM','Inf'],['LEFT','Izq'],['RIGHT','Der']] as const
 
+// ── PDF visibility ─────────────────────────────────────────────────────────
+type PdfVisibility = 'HIDDEN' | 'DESCRIPTION' | 'DESCRIPTION_AND_PRICE'
+const PDF_VIS_OPTIONS: { value: PdfVisibility; label: string }[] = [
+  { value: 'HIDDEN', label: 'Oculto' },
+  { value: 'DESCRIPTION', label: 'Descripción' },
+  { value: 'DESCRIPTION_AND_PRICE', label: 'Desc. + precio' },
+]
+const pdfVisLabel = (v: string) => PDF_VIS_OPTIONS.find(o => o.value === v)?.label ?? 'Oculto'
+
+function PdfVisibilitySelect({ value, onChange }: { value: PdfVisibility; onChange: (v: PdfVisibility) => void }) {
+  return (
+    <div style={{ display: 'flex', gap: '0.5rem' }}>
+      {PDF_VIS_OPTIONS.map(opt => (
+        <button key={opt.value} type="button" onClick={() => onChange(opt.value)}
+          style={{ flex: 1, height: '2.25rem', fontSize: '0.75rem', fontWeight: 600, borderRadius: '0.75rem', border: '1.5px solid', cursor: 'pointer', transition: 'all 0.15s',
+            background: value === opt.value ? 'var(--primary)' : 'white',
+            borderColor: value === opt.value ? 'var(--primary)' : 'var(--border)',
+            color: value === opt.value ? 'white' : 'var(--text-muted)' }}>
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 // ── Combobox ────────────────────────────────────────────────────────────────
-function EyeIcon() {
-  return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-}
-function EyeOffIcon() {
-  return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-}
 
 function MatCombo({ options, value, onChange, placeholder, section, onCreated }: {
   options: Material[]; value: string; onChange: (id: string) => void; placeholder?: string
@@ -157,9 +176,9 @@ export default function QuoteItemDetailPage({ params }: { params: Promise<{ id: 
   const [saving, setSaving] = useState(false)
   const [editingCutId, setEditingCutId] = useState<string | null>(null)
 
-  const [cutForm, setCutForm] = useState({ description: '', materialId: '', width: 0, height: 0, quantity: 1, edgeBandMaterialId: '', sides: [] as string[], showInPdf: true })
-  const [accForm, setAccForm] = useState({ description: '', materialId: '', quantity: 1 })
-  const [addForm, setAddForm] = useState({ description: '', materialId: '', quantity: 1, showPrice: true, priceMode: 'calc' as 'calc' | 'fixed', manualPrice: 0 })
+  const [cutForm, setCutForm] = useState({ description: '', materialId: '', width: 0, height: 0, quantity: 1, edgeBandMaterialId: '', sides: [] as string[], pdfVisibility: 'HIDDEN' as PdfVisibility })
+  const [accForm, setAccForm] = useState({ description: '', materialId: '', quantity: 1, pdfVisibility: 'HIDDEN' as PdfVisibility })
+  const [addForm, setAddForm] = useState({ description: '', materialId: '', quantity: 1, pdfVisibility: 'DESCRIPTION_AND_PRICE' as PdfVisibility, priceMode: 'calc' as 'calc' | 'fixed', manualPrice: 0 })
 
   useEffect(() => { params.then(setIds) }, [params])
 
@@ -185,7 +204,7 @@ export default function QuoteItemDetailPage({ params }: { params: Promise<{ id: 
   function openEditCut(cut: any) {
     const sides = (cut.edgeBands ?? []).map((eb: any) => eb.side)
     const edgeBandMaterialId = cut.edgeBands?.[0]?.materialId ?? ''
-    setCutForm({ description: cut.description ?? '', materialId: cut.materialId ?? '', width: cut.width, height: cut.height, quantity: cut.quantity, edgeBandMaterialId, sides, showInPdf: cut.showInPdf !== false })
+    setCutForm({ description: cut.description ?? '', materialId: cut.materialId ?? '', width: cut.width, height: cut.height, quantity: cut.quantity, edgeBandMaterialId, sides, pdfVisibility: cut.pdfVisibility ?? 'HIDDEN' })
     setEditingCutId(cut.id)
     setModal('cut')
   }
@@ -203,7 +222,7 @@ export default function QuoteItemDetailPage({ params }: { params: Promise<{ id: 
       body: JSON.stringify({ ...cutForm, edgeBands }),
     })
     setSaving(false)
-    if (res.ok) { setModal(null); setEditingCutId(null); setCutForm({ description: '', materialId: '', width: 0, height: 0, quantity: 1, edgeBandMaterialId: '', sides: [], showInPdf: true }); fetchItem() }
+    if (res.ok) { setModal(null); setEditingCutId(null); setCutForm({ description: '', materialId: '', width: 0, height: 0, quantity: 1, edgeBandMaterialId: '', sides: [], pdfVisibility: 'HIDDEN' }); fetchItem() }
   }
 
   async function saveAcc() {
@@ -213,7 +232,7 @@ export default function QuoteItemDetailPage({ params }: { params: Promise<{ id: 
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(accForm),
     })
     setSaving(false)
-    if (res.ok) { setModal(null); setAccForm({ description: '', materialId: '', quantity: 1 }); fetchItem() }
+    if (res.ok) { setModal(null); setAccForm({ description: '', materialId: '', quantity: 1, pdfVisibility: 'HIDDEN' }); fetchItem() }
   }
 
   async function saveAdd() {
@@ -224,7 +243,7 @@ export default function QuoteItemDetailPage({ params }: { params: Promise<{ id: 
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
     })
     setSaving(false)
-    if (res.ok) { setModal(null); setAddForm({ description: '', materialId: '', quantity: 1, showPrice: true, priceMode: 'calc', manualPrice: 0 }); fetchItem() }
+    if (res.ok) { setModal(null); setAddForm({ description: '', materialId: '', quantity: 1, pdfVisibility: 'DESCRIPTION_AND_PRICE', priceMode: 'calc', manualPrice: 0 }); fetchItem() }
   }
 
   async function deleteCut(cutId: string) {
@@ -290,7 +309,7 @@ export default function QuoteItemDetailPage({ params }: { params: Promise<{ id: 
                         <td>{cut.height} mm</td>
                         <td>{cut.quantity}</td>
                         <td>{cut.edgeBands?.length ?? 0}</td>
-                        <td><span className="badge badge-gray">{cut.showInPdf !== false ? 'Visible' : 'Oculto'}</span></td>
+                        <td><span className="badge badge-gray">{pdfVisLabel(cut.pdfVisibility)}</span></td>
                         <td style={{ fontWeight: 600, color: 'var(--primary)' }}>{fmt(cutTotal)}</td>
                         <td style={{ display: 'flex', gap: '0.25rem' }}>
                           <button className="btn btn-ghost btn-sm" onClick={() => openEditCut(cut)}>✎</button>
@@ -312,15 +331,16 @@ export default function QuoteItemDetailPage({ params }: { params: Promise<{ id: 
           </div>
           <div className="table-wrapper" style={{ margin: 0, border: 'none' }}>
             <table>
-              <thead><tr><th>Descripción</th><th>Material</th><th>Cant.</th><th>Subtotal</th><th></th></tr></thead>
+              <thead><tr><th>Descripción</th><th>Material</th><th>Cant.</th><th>PDF</th><th>Subtotal</th><th></th></tr></thead>
               <tbody>
                 {item.accessories.length === 0
-                  ? <tr><td colSpan={5} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Sin herrajes</td></tr>
+                  ? <tr><td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Sin herrajes</td></tr>
                   : item.accessories.map((acc: any) => (
                     <tr key={acc.id}>
                       <td style={{ fontWeight: 500 }}>{acc.description ?? '—'}</td>
                       <td style={{ color: 'var(--text-muted)' }}>{acc.materialNameSnapshot ?? '—'}</td>
                       <td>{acc.quantity}</td>
+                      <td><span className="badge badge-gray">{pdfVisLabel(acc.pdfVisibility)}</span></td>
                       <td style={{ fontWeight: 600, color: 'var(--primary)' }}>{fmt(acc.subtotalCost)}</td>
                       <td><button className="btn btn-ghost btn-sm" style={{ color: 'var(--danger)' }} onClick={() => deleteAcc(acc.id)}>✕</button></td>
                     </tr>
@@ -338,7 +358,7 @@ export default function QuoteItemDetailPage({ params }: { params: Promise<{ id: 
           </div>
           <div className="table-wrapper" style={{ margin: 0, border: 'none' }}>
             <table>
-              <thead><tr><th>Descripción</th><th>Material</th><th>Cant.</th><th>Precio PDF</th><th>Subtotal</th><th></th></tr></thead>
+              <thead><tr><th>Descripción</th><th>Material</th><th>Cant.</th><th>PDF</th><th>Subtotal</th><th></th></tr></thead>
               <tbody>
                 {(item.additionals ?? []).length === 0
                   ? <tr><td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Sin adicionales</td></tr>
@@ -347,7 +367,7 @@ export default function QuoteItemDetailPage({ params }: { params: Promise<{ id: 
                       <td style={{ fontWeight: 500 }}>{add.description ?? '—'}</td>
                       <td style={{ color: 'var(--text-muted)' }}>{add.materialNameSnapshot ?? '—'}</td>
                       <td>{add.quantity}</td>
-                      <td><span className="badge badge-gray">{add.showPrice ? 'Visible' : 'Oculto'}</span></td>
+                      <td><span className="badge badge-gray">{pdfVisLabel(add.pdfVisibility)}</span></td>
                       <td style={{ fontWeight: 600, color: 'var(--primary)' }}>{fmt(add.subtotalCost)}</td>
                       <td><button className="btn btn-ghost btn-sm" style={{ color: 'var(--danger)' }} onClick={() => deleteAdd(add.id)}>✕</button></td>
                     </tr>
@@ -409,14 +429,8 @@ export default function QuoteItemDetailPage({ params }: { params: Promise<{ id: 
                 </div>
               )}
               <div className="form-group">
-                <label className="form-label">Mostrar detalles en PDF</label>
-                <button type="button" onClick={() => setCutForm(f => ({ ...f, showInPdf: !f.showInPdf }))}
-                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                  <span style={{ width: 30, height: 30, borderRadius: 8, border: `1.5px solid ${cutForm.showInPdf ? 'var(--primary)' : 'var(--border)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: cutForm.showInPdf ? 'var(--primary)' : 'var(--text-muted)', background: cutForm.showInPdf ? 'var(--primary-50)' : 'white', transition: 'all 0.15s' }}>
-                    {cutForm.showInPdf ? <EyeIcon /> : <EyeOffIcon />}
-                  </span>
-                  <span style={{ fontSize: '0.875rem', color: 'var(--text)' }}>{cutForm.showInPdf ? 'Visible en PDF' : 'Oculto en PDF'}</span>
-                </button>
+                <label className="form-label">Mostrar en PDF</label>
+                <PdfVisibilitySelect value={cutForm.pdfVisibility} onChange={v => setCutForm(f => ({ ...f, pdfVisibility: v }))} />
               </div>
             </div>
             <div className="modal-footer">
@@ -446,6 +460,10 @@ export default function QuoteItemDetailPage({ params }: { params: Promise<{ id: 
               <div className="form-group">
                 <label className="form-label">Cantidad</label>
                 <input type="number" min={1} className="form-input" value={accForm.quantity} onChange={e => setAccForm(f => ({ ...f, quantity: parseInt(e.target.value) || 1 }))} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Mostrar en PDF</label>
+                <PdfVisibilitySelect value={accForm.pdfVisibility} onChange={v => setAccForm(f => ({ ...f, pdfVisibility: v }))} />
               </div>
             </div>
             <div className="modal-footer">
@@ -502,14 +520,8 @@ export default function QuoteItemDetailPage({ params }: { params: Promise<{ id: 
                 </>
               )}
               <div className="form-group">
-                <label className="form-label">Mostrar precio en PDF</label>
-                <button type="button" onClick={() => setAddForm(f => ({ ...f, showPrice: !f.showPrice }))}
-                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                  <span style={{ width: 30, height: 30, borderRadius: 8, border: `1.5px solid ${addForm.showPrice ? 'var(--primary)' : 'var(--border)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: addForm.showPrice ? 'var(--primary)' : 'var(--text-muted)', background: addForm.showPrice ? 'var(--primary-50)' : 'white', transition: 'all 0.15s' }}>
-                    {addForm.showPrice ? <EyeIcon /> : <EyeOffIcon />}
-                  </span>
-                  <span style={{ fontSize: '0.875rem', color: 'var(--text)' }}>{addForm.showPrice ? 'Precio visible' : 'Precio oculto'}</span>
-                </button>
+                <label className="form-label">Mostrar en PDF</label>
+                <PdfVisibilitySelect value={addForm.pdfVisibility} onChange={v => setAddForm(f => ({ ...f, pdfVisibility: v }))} />
               </div>
             </div>
             <div className="modal-footer">

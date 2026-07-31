@@ -56,6 +56,8 @@ export const bulkPriceUpdateSchema = z.object({
   materialIds: z.array(z.string()).optional(),
 })
 
+export const pdfVisibilitySchema = z.enum(['HIDDEN', 'DESCRIPTION', 'DESCRIPTION_AND_PRICE'])
+
 export const quoteItemEdgeBandSchema = z.object({
   materialId: z.string().optional(),
   side: z.enum(['TOP', 'BOTTOM', 'LEFT', 'RIGHT']),
@@ -69,7 +71,7 @@ export const quoteItemCutSchema = z.object({
   height: z.coerce.number().min(0).default(0),
   quantity: z.coerce.number().min(1).default(1),
   notes: z.string().optional(),
-  showInPdf: z.boolean().optional().default(false),
+  pdfVisibility: pdfVisibilitySchema.default('HIDDEN'),
   edgeBandMaterialId: z.string().optional(),
   edgeBands: z.array(quoteItemEdgeBandSchema).default([]),
 })
@@ -78,13 +80,14 @@ export const quoteItemAccessorySchema = z.object({
   materialId: z.string().optional(),
   description: z.string().optional(),
   quantity: z.coerce.number().min(1).default(1),
+  pdfVisibility: pdfVisibilitySchema.default('HIDDEN'),
 })
 
 export const quoteItemAdditionalSchema = z.object({
   materialId: z.string().optional(),
   description: z.string().optional(),
   quantity: z.coerce.number().min(1).default(1),
-  showPrice: z.boolean().default(true),
+  pdfVisibility: pdfVisibilitySchema.default('DESCRIPTION_AND_PRICE'),
   manualPrice: z.coerce.number().min(0).optional(),
 })
 
@@ -123,7 +126,6 @@ export const quoteUpdateSchema = z.object({
   paymentTerms: z.string().nullish(),
   notes: z.string().nullish(),
   status: z.enum(['DRAFT', 'ISSUED', 'APPROVED', 'REJECTED', 'EXPIRED']).optional(),
-  pdfShowMaterialAmounts: z.boolean().optional(),
 })
 
 export type ProveedorInput = z.infer<typeof proveedorSchema>

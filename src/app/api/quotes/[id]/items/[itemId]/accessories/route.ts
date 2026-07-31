@@ -9,7 +9,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { id: quoteId, itemId } = await ctx.params
-  const { description, materialId, quantity } = await req.json()
+  const { description, materialId, quantity, pdfVisibility } = await req.json()
 
   await prisma.$transaction(async tx => {
     const mat = materialId ? await tx.material.findUnique({ where: { id: materialId } }) : null
@@ -23,6 +23,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         description,
         quantity: quantity ?? 1,
         subtotalCost: unitCost * (quantity ?? 1),
+        pdfVisibility: pdfVisibility ?? 'HIDDEN',
       },
     })
     await recalcItem(tx, itemId, quoteId)
