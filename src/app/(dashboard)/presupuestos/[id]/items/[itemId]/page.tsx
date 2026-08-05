@@ -294,17 +294,16 @@ export default function QuoteItemDetailPage({ params }: { params: Promise<{ id: 
           </div>
           <div className="table-wrapper" style={{ margin: 0, border: 'none' }}>
             <table>
-              <thead><tr><th>Descripción</th><th>Material</th><th>Ancho</th><th>Alto</th><th>Cant.</th><th>Cantos</th><th>PDF</th><th>Subtotal</th><th></th></tr></thead>
+              <thead><tr><th>Descripción</th><th>Ancho</th><th>Alto</th><th>Cant.</th><th>Cantos</th><th>PDF</th><th>Subtotal</th><th></th></tr></thead>
               <tbody>
                 {item.cuts.length === 0
-                  ? <tr><td colSpan={9} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Sin cortes</td></tr>
+                  ? <tr><td colSpan={8} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Sin cortes</td></tr>
                   : item.cuts.map((cut: any) => {
                     const edgeBandCost = (cut.edgeBands ?? []).reduce((s: number, eb: any) => s + parseFloat(String(eb.subtotalCost)), 0)
                     const cutTotal = parseFloat(String(cut.subtotalCost)) + edgeBandCost
                     return (
                       <tr key={cut.id}>
                         <td style={{ fontWeight: 500 }}>{cut.description ?? '—'}</td>
-                        <td style={{ color: 'var(--text-muted)' }}>{cut.materialNameSnapshot ?? '—'}</td>
                         <td>{cut.width} mm</td>
                         <td>{cut.height} mm</td>
                         <td>{cut.quantity}</td>
@@ -331,14 +330,13 @@ export default function QuoteItemDetailPage({ params }: { params: Promise<{ id: 
           </div>
           <div className="table-wrapper" style={{ margin: 0, border: 'none' }}>
             <table>
-              <thead><tr><th>Descripción</th><th>Material</th><th>Cant.</th><th>PDF</th><th>Subtotal</th><th></th></tr></thead>
+              <thead><tr><th>Descripción</th><th>Cant.</th><th>PDF</th><th>Subtotal</th><th></th></tr></thead>
               <tbody>
                 {item.accessories.length === 0
-                  ? <tr><td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Sin herrajes</td></tr>
+                  ? <tr><td colSpan={5} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Sin herrajes</td></tr>
                   : item.accessories.map((acc: any) => (
                     <tr key={acc.id}>
                       <td style={{ fontWeight: 500 }}>{acc.description ?? '—'}</td>
-                      <td style={{ color: 'var(--text-muted)' }}>{acc.materialNameSnapshot ?? '—'}</td>
                       <td>{acc.quantity}</td>
                       <td><span className="badge badge-gray">{pdfVisLabel(acc.pdfVisibility)}</span></td>
                       <td style={{ fontWeight: 600, color: 'var(--primary)' }}>{fmt(acc.subtotalCost)}</td>
@@ -358,14 +356,13 @@ export default function QuoteItemDetailPage({ params }: { params: Promise<{ id: 
           </div>
           <div className="table-wrapper" style={{ margin: 0, border: 'none' }}>
             <table>
-              <thead><tr><th>Descripción</th><th>Material</th><th>Cant.</th><th>PDF</th><th>Subtotal</th><th></th></tr></thead>
+              <thead><tr><th>Descripción</th><th>Cant.</th><th>PDF</th><th>Subtotal</th><th></th></tr></thead>
               <tbody>
                 {(item.additionals ?? []).length === 0
-                  ? <tr><td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Sin adicionales</td></tr>
+                  ? <tr><td colSpan={5} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Sin adicionales</td></tr>
                   : (item.additionals ?? []).map((add: any) => (
                     <tr key={add.id}>
                       <td style={{ fontWeight: 500 }}>{add.description ?? '—'}</td>
-                      <td style={{ color: 'var(--text-muted)' }}>{add.materialNameSnapshot ?? '—'}</td>
                       <td>{add.quantity}</td>
                       <td><span className="badge badge-gray">{pdfVisLabel(add.pdfVisibility)}</span></td>
                       <td style={{ fontWeight: 600, color: 'var(--primary)' }}>{fmt(add.subtotalCost)}</td>
