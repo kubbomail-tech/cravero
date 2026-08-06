@@ -9,6 +9,22 @@ type FurnitureType = { id: string; name: string }
 type WizardStep = 'type' | 'cuts' | 'hardware' | 'additionals' | 'confirm'
 
 type PdfVisibility = 'HIDDEN' | 'DESCRIPTION' | 'DESCRIPTION_AND_PRICE'
+const PDF_VIS_LABELS: Record<PdfVisibility, string> = { HIDDEN: 'Oculto', DESCRIPTION: 'Descripción', DESCRIPTION_AND_PRICE: 'Desc. + precio' }
+function PdfVisToggle({ value, onChange }: { value: PdfVisibility; onChange: (v: PdfVisibility) => void }) {
+  return (
+    <div className="flex gap-2">
+      {(['HIDDEN', 'DESCRIPTION', 'DESCRIPTION_AND_PRICE'] as PdfVisibility[]).map(v => (
+        <button key={v} type="button" onClick={() => onChange(v)}
+          style={{ flex: 1, height: '1.875rem', fontSize: '0.7rem', fontWeight: 600, borderRadius: '0.625rem', border: '1.5px solid', cursor: 'pointer', transition: 'all 0.15s',
+            background: value === v ? '#198e85' : 'white',
+            borderColor: value === v ? '#198e85' : '#e2e8f0',
+            color: value === v ? 'white' : '#94a3b8' }}>
+          {PDF_VIS_LABELS[v]}
+        </button>
+      ))}
+    </div>
+  )
+}
 interface CutItem {
   materialId: string; description: string; width: number; height: number
   quantity: number; edgeBandMaterialId: string; pdfVisibility: PdfVisibility
@@ -646,6 +662,15 @@ export default function NuevoPresupuestoPage() {
                               </button>
                             </div>
                           </div>
+                          {/* Row 3: visibilidad en PDF */}
+                          <div className="grid grid-cols-12 gap-2 items-center mt-2">
+                            <div className="col-span-1">
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">PDF</span>
+                            </div>
+                            <div className="col-span-5">
+                              <PdfVisToggle value={cut.pdfVisibility} onChange={v => updateCut(cIdx, { pdfVisibility: v })} />
+                            </div>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -690,21 +715,31 @@ export default function NuevoPresupuestoPage() {
                         </div>
                       )}
                       {draft.accessories.map((acc, aIdx) => (
-                        <div key={aIdx} className="grid grid-cols-12 gap-4 items-end bg-slate-50 rounded-xl px-5 py-4 border border-slate-100">
-                          <div className="col-span-3">
-                            <label className={lbl}>Descripción</label>
-                            <input className={inp} value={acc.description} onChange={e => updateAcc(aIdx, { description: e.target.value })} />
+                        <div key={aIdx} className="bg-slate-50 rounded-xl px-5 py-4 border border-slate-100 space-y-3">
+                          <div className="grid grid-cols-12 gap-4 items-end">
+                            <div className="col-span-3">
+                              <label className={lbl}>Descripción</label>
+                              <input className={inp} value={acc.description} onChange={e => updateAcc(aIdx, { description: e.target.value })} />
+                            </div>
+                            <div className="col-span-6">
+                              <label className={lbl}>Material / Herraje</label>
+                              <MaterialCombobox options={herrajeMats} value={acc.materialId} onChange={(v: string) => updateAcc(aIdx, { materialId: v })} className={sel} section="HERRAJES" onCreated={refreshMaterials} />
+                            </div>
+                            <div className="col-span-2">
+                              <label className={lbl}>Cantidad</label>
+                              <input type="number" min={1} className={numInp} value={acc.quantity} onChange={e => updateAcc(aIdx, { quantity: parseInt(e.target.value) || 1 })} />
+                            </div>
+                            <div className="col-span-1 flex justify-end items-end">
+                              <button onClick={() => removeAcc(aIdx)} className={btnDanger}>×</button>
+                            </div>
                           </div>
-                          <div className="col-span-6">
-                            <label className={lbl}>Material / Herraje</label>
-                            <MaterialCombobox options={herrajeMats} value={acc.materialId} onChange={(v: string) => updateAcc(aIdx, { materialId: v })} className={sel} section="HERRAJES" onCreated={refreshMaterials} />
-                          </div>
-                          <div className="col-span-2">
-                            <label className={lbl}>Cantidad</label>
-                            <input type="number" min={1} className={numInp} value={acc.quantity} onChange={e => updateAcc(aIdx, { quantity: parseInt(e.target.value) || 1 })} />
-                          </div>
-                          <div className="col-span-1 flex justify-end items-end">
-                            <button onClick={() => removeAcc(aIdx)} className={btnDanger}>×</button>
+                          <div className="grid grid-cols-12 gap-2 items-center">
+                            <div className="col-span-1">
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">PDF</span>
+                            </div>
+                            <div className="col-span-5">
+                              <PdfVisToggle value={acc.pdfVisibility} onChange={v => updateAcc(aIdx, { pdfVisibility: v })} />
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -762,7 +797,7 @@ export default function NuevoPresupuestoPage() {
                                   <label className={lbl}>Material / Ítem</label>
                                   <MaterialCombobox options={additionalMats} value={add.materialId} onChange={(v: string) => updateAdditional(aIdx, { materialId: v })} className={sel} section="ADICIONALES" onCreated={refreshMaterials} />
                                 </div>
-                                <div className="col-span-2">
+                                <div className="col-span-3">
                                   <label className={lbl}>Cantidad</label>
                                   <input type="number" min={1} className={numInp} value={add.quantity} onChange={e => updateAdditional(aIdx, { quantity: parseInt(e.target.value) || 1 })} />
                                 </div>
@@ -773,26 +808,22 @@ export default function NuevoPresupuestoPage() {
                                   <label className={lbl}>Material (opcional)</label>
                                   <MaterialCombobox options={additionalMats} value={add.materialId} onChange={(v: string) => updateAdditional(aIdx, { materialId: v })} className={sel} section="ADICIONALES" onCreated={refreshMaterials} />
                                 </div>
-                                <div className="col-span-3">
+                                <div className="col-span-4">
                                   <label className={lbl}>Precio total $</label>
                                   <input type="number" min={0} className={numInp} placeholder="0.00" value={add.manualPrice || ''} onChange={e => updateAdditional(aIdx, { manualPrice: parseFloat(e.target.value) || 0 })} />
                                 </div>
                               </>
                             )}
-                            <div className="col-span-1 flex flex-col items-center gap-1">
-                              <label className={lbl + ' text-center'}>PDF</label>
-                              <select
-                                value={add.pdfVisibility}
-                                onChange={e => updateAdditional(aIdx, { pdfVisibility: e.target.value as PdfVisibility })}
-                                title="Visibilidad en PDF"
-                                style={{ width: '100%', height: 30, fontSize: 9, fontWeight: 700, borderRadius: '0.5rem', border: '1.5px solid #e2e8f0', background: 'white', color: '#198e85', textAlign: 'center', cursor: 'pointer' }}>
-                                <option value="HIDDEN">Oculto</option>
-                                <option value="DESCRIPTION">Desc.</option>
-                                <option value="DESCRIPTION_AND_PRICE">Desc.+$</option>
-                              </select>
-                            </div>
                             <div className="col-span-1 flex justify-end items-end">
                               <button onClick={() => removeAdditional(aIdx)} className={btnDanger}>×</button>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-12 gap-2 items-center">
+                            <div className="col-span-1">
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">PDF</span>
+                            </div>
+                            <div className="col-span-5">
+                              <PdfVisToggle value={add.pdfVisibility} onChange={v => updateAdditional(aIdx, { pdfVisibility: v })} />
                             </div>
                           </div>
                         </div>
