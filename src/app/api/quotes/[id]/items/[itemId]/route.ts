@@ -1,7 +1,7 @@
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
-import { toNumber } from '@/lib/calculations'
+import { toNumber, recalcQuoteFinancials } from '@/lib/calculations'
 
 export async function GET(
   _req: NextRequest,
@@ -43,25 +43,22 @@ export async function DELETE(
     const quote = await tx.quote.findUnique({ where: { id: quoteId } })
 
     if (quote) {
-      const totalMat = allItems.reduce(
-        (a, i) => a + toNumber(i.subtotalMaterials) + toNumber(i.subtotalHardware) + toNumber(i.subtotalAdditionals),
-        0
-      )
-      const labor = totalMat * (toNumber(quote.laborPercentage) / 100)
-      const subtotalBeforeDiscount = totalMat + labor
-      const discountDollar = subtotalBeforeDiscount * (toNumber(quote.discountAmount) / 100)
-      const beforeTax = subtotalBeforeDiscount - discountDollar
-      const vat = beforeTax * (toNumber(quote.vatPercentage) / 100)
-      const total = beforeTax + vat
+      const totalLaborBase = allItems.reduce((a, i) => a + toNumber(i.subtotalMaterials) + toNumber(i.subtotalHardware), 0)
+      const totalAdditionals = allItems.reduce((a, i) => a + toNumber(i.subtotalAdditionals), 0)
+      const financials = recalcQuoteFinancials({
+        subtotalMaterials: totalLaborBase,
+        subtotalAdditionals: totalAdditionals,
+        laborPercentage: toNumber(quote.laborPercentage),
+        vatPercentage: toNumber(quote.vatPercentage),
+        discountAmount: toNumber(quote.discountAmount),
+      })
 
       await tx.quote.update({
         where: { id: quoteId },
         data: {
-          subtotalMaterials: totalMat,
-          subtotalLabor: labor,
-          subtotalBeforeTax: beforeTax,
-          vatAmount: vat,
-          totalAmount: total,
+          subtotalMaterials: totalLaborBase,
+          subtotalAdditionals: totalAdditionals,
+          ...financials,
         },
       })
     }
