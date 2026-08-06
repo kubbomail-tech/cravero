@@ -175,6 +175,8 @@ export default function QuoteItemDetailPage({ params }: { params: Promise<{ id: 
   const [modal, setModal] = useState<'cut' | 'accessory' | 'additional' | null>(null)
   const [saving, setSaving] = useState(false)
   const [editingCutId, setEditingCutId] = useState<string | null>(null)
+  const [editingAccId, setEditingAccId] = useState<string | null>(null)
+  const [editingAddId, setEditingAddId] = useState<string | null>(null)
 
   const [cutForm, setCutForm] = useState({ description: '', materialId: '', width: 0, height: 0, quantity: 1, edgeBandMaterialId: '', sides: [] as string[], pdfVisibility: 'HIDDEN' as PdfVisibility })
   const [accForm, setAccForm] = useState({ description: '', materialId: '', quantity: 1, pdfVisibility: 'HIDDEN' as PdfVisibility })
@@ -209,6 +211,23 @@ export default function QuoteItemDetailPage({ params }: { params: Promise<{ id: 
     setModal('cut')
   }
 
+  function openEditAcc(acc: any) {
+    setAccForm({ description: acc.description ?? '', materialId: acc.materialId ?? '', quantity: acc.quantity, pdfVisibility: acc.pdfVisibility ?? 'HIDDEN' })
+    setEditingAccId(acc.id)
+    setModal('accessory')
+  }
+
+  function openEditAdd(add: any) {
+    const priceMode: 'calc' | 'fixed' = add.materialId ? 'calc' : 'fixed'
+    setAddForm({
+      description: add.description ?? '', materialId: add.materialId ?? '', quantity: add.quantity,
+      pdfVisibility: add.pdfVisibility ?? 'DESCRIPTION_AND_PRICE', priceMode,
+      manualPrice: priceMode === 'fixed' ? parseFloat(String(add.subtotalCost)) : 0,
+    })
+    setEditingAddId(add.id)
+    setModal('additional')
+  }
+
   async function saveCut() {
     if (!ids) return
     setSaving(true)
@@ -228,22 +247,28 @@ export default function QuoteItemDetailPage({ params }: { params: Promise<{ id: 
   async function saveAcc() {
     if (!ids) return
     setSaving(true)
-    const res = await fetch(`/api/quotes/${ids.id}/items/${ids.itemId}/accessories`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(accForm),
+    const url = editingAccId
+      ? `/api/quotes/${ids.id}/items/${ids.itemId}/accessories/${editingAccId}`
+      : `/api/quotes/${ids.id}/items/${ids.itemId}/accessories`
+    const res = await fetch(url, {
+      method: editingAccId ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(accForm),
     })
     setSaving(false)
-    if (res.ok) { setModal(null); setAccForm({ description: '', materialId: '', quantity: 1, pdfVisibility: 'HIDDEN' }); fetchItem() }
+    if (res.ok) { setModal(null); setEditingAccId(null); setAccForm({ description: '', materialId: '', quantity: 1, pdfVisibility: 'HIDDEN' }); fetchItem() }
   }
 
   async function saveAdd() {
     if (!ids) return
     setSaving(true)
     const payload = { ...addForm, manualPrice: addForm.priceMode === 'fixed' ? addForm.manualPrice : undefined }
-    const res = await fetch(`/api/quotes/${ids.id}/items/${ids.itemId}/additionals`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+    const url = editingAddId
+      ? `/api/quotes/${ids.id}/items/${ids.itemId}/additionals/${editingAddId}`
+      : `/api/quotes/${ids.id}/items/${ids.itemId}/additionals`
+    const res = await fetch(url, {
+      method: editingAddId ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
     })
     setSaving(false)
-    if (res.ok) { setModal(null); setAddForm({ description: '', materialId: '', quantity: 1, pdfVisibility: 'DESCRIPTION_AND_PRICE', priceMode: 'calc', manualPrice: 0 }); fetchItem() }
+    if (res.ok) { setModal(null); setEditingAddId(null); setAddForm({ description: '', materialId: '', quantity: 1, pdfVisibility: 'DESCRIPTION_AND_PRICE', priceMode: 'calc', manualPrice: 0 }); fetchItem() }
   }
 
   async function deleteCut(cutId: string) {
@@ -326,7 +351,7 @@ export default function QuoteItemDetailPage({ params }: { params: Promise<{ id: 
         <div className="card">
           <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <h2>Herrajes y accesorios</h2>
-            <button className="btn btn-secondary btn-sm" onClick={() => setModal('accessory')}>+ Agregar herraje</button>
+            <button className="btn btn-secondary btn-sm" onClick={() => { setEditingAccId(null); setAccForm({ description: '', materialId: '', quantity: 1, pdfVisibility: 'HIDDEN' }); setModal('accessory') }}>+ Agregar herraje</button>
           </div>
           <div className="table-wrapper" style={{ margin: 0, border: 'none' }}>
             <table>
@@ -340,7 +365,10 @@ export default function QuoteItemDetailPage({ params }: { params: Promise<{ id: 
                       <td>{acc.quantity}</td>
                       <td><span className="badge badge-gray">{pdfVisLabel(acc.pdfVisibility)}</span></td>
                       <td style={{ fontWeight: 600, color: 'var(--primary)' }}>{fmt(acc.subtotalCost)}</td>
-                      <td><button className="btn btn-ghost btn-sm" style={{ color: 'var(--danger)' }} onClick={() => deleteAcc(acc.id)}>✕</button></td>
+                      <td style={{ display: 'flex', gap: '0.25rem' }}>
+                        <button className="btn btn-ghost btn-sm" onClick={() => openEditAcc(acc)}>✎</button>
+                        <button className="btn btn-ghost btn-sm" style={{ color: 'var(--danger)' }} onClick={() => deleteAcc(acc.id)}>✕</button>
+                      </td>
                     </tr>
                   ))}
               </tbody>
@@ -352,7 +380,7 @@ export default function QuoteItemDetailPage({ params }: { params: Promise<{ id: 
         <div className="card">
           <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <h2>Adicionales</h2>
-            <button className="btn btn-secondary btn-sm" onClick={() => setModal('additional')}>+ Agregar adicional</button>
+            <button className="btn btn-secondary btn-sm" onClick={() => { setEditingAddId(null); setAddForm({ description: '', materialId: '', quantity: 1, pdfVisibility: 'DESCRIPTION_AND_PRICE', priceMode: 'calc', manualPrice: 0 }); setModal('additional') }}>+ Agregar adicional</button>
           </div>
           <div className="table-wrapper" style={{ margin: 0, border: 'none' }}>
             <table>
@@ -366,7 +394,10 @@ export default function QuoteItemDetailPage({ params }: { params: Promise<{ id: 
                       <td>{add.quantity}</td>
                       <td><span className="badge badge-gray">{pdfVisLabel(add.pdfVisibility)}</span></td>
                       <td style={{ fontWeight: 600, color: 'var(--primary)' }}>{fmt(add.subtotalCost)}</td>
-                      <td><button className="btn btn-ghost btn-sm" style={{ color: 'var(--danger)' }} onClick={() => deleteAdd(add.id)}>✕</button></td>
+                      <td style={{ display: 'flex', gap: '0.25rem' }}>
+                        <button className="btn btn-ghost btn-sm" onClick={() => openEditAdd(add)}>✎</button>
+                        <button className="btn btn-ghost btn-sm" style={{ color: 'var(--danger)' }} onClick={() => deleteAdd(add.id)}>✕</button>
+                      </td>
                     </tr>
                   ))}
               </tbody>
@@ -442,9 +473,9 @@ export default function QuoteItemDetailPage({ params }: { params: Promise<{ id: 
 
       {/* ── Modal Herraje ── */}
       {modal === 'accessory' && (
-        <div className="modal-overlay" onClick={() => setModal(null)}>
+        <div className="modal-overlay" onClick={() => { setModal(null); setEditingAccId(null) }}>
           <div className="modal" style={{ maxWidth: 480 }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header"><h3>Agregar herraje</h3><button className="btn btn-ghost btn-sm" onClick={() => setModal(null)}>×</button></div>
+            <div className="modal-header"><h3>{editingAccId ? 'Editar herraje' : 'Agregar herraje'}</h3><button className="btn btn-ghost btn-sm" onClick={() => { setModal(null); setEditingAccId(null) }}>×</button></div>
             <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div className="form-group">
                 <label className="form-label">Descripción</label>
@@ -464,8 +495,8 @@ export default function QuoteItemDetailPage({ params }: { params: Promise<{ id: 
               </div>
             </div>
             <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={() => setModal(null)}>Cancelar</button>
-              <button className="btn btn-primary" onClick={saveAcc} disabled={saving}>{saving ? 'Guardando…' : 'Agregar herraje'}</button>
+              <button className="btn btn-secondary" onClick={() => { setModal(null); setEditingAccId(null) }}>Cancelar</button>
+              <button className="btn btn-primary" onClick={saveAcc} disabled={saving}>{saving ? 'Guardando…' : editingAccId ? 'Guardar cambios' : 'Agregar herraje'}</button>
             </div>
           </div>
         </div>
@@ -473,9 +504,9 @@ export default function QuoteItemDetailPage({ params }: { params: Promise<{ id: 
 
       {/* ── Modal Adicional ── */}
       {modal === 'additional' && (
-        <div className="modal-overlay" onClick={() => setModal(null)}>
+        <div className="modal-overlay" onClick={() => { setModal(null); setEditingAddId(null) }}>
           <div className="modal" style={{ maxWidth: 480 }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header"><h3>Agregar adicional</h3><button className="btn btn-ghost btn-sm" onClick={() => setModal(null)}>×</button></div>
+            <div className="modal-header"><h3>{editingAddId ? 'Editar adicional' : 'Agregar adicional'}</h3><button className="btn btn-ghost btn-sm" onClick={() => { setModal(null); setEditingAddId(null) }}>×</button></div>
             <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               {/* Mode toggle */}
               <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -522,8 +553,8 @@ export default function QuoteItemDetailPage({ params }: { params: Promise<{ id: 
               </div>
             </div>
             <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={() => setModal(null)}>Cancelar</button>
-              <button className="btn btn-primary" onClick={saveAdd} disabled={saving}>{saving ? 'Guardando…' : 'Agregar adicional'}</button>
+              <button className="btn btn-secondary" onClick={() => { setModal(null); setEditingAddId(null) }}>Cancelar</button>
+              <button className="btn btn-primary" onClick={saveAdd} disabled={saving}>{saving ? 'Guardando…' : editingAddId ? 'Guardar cambios' : 'Agregar adicional'}</button>
             </div>
           </div>
         </div>
