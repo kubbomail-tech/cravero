@@ -115,8 +115,10 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
 
   const laborFactor = 1 + toNumber(quote.laborPercentage) / 100
 
-  function drawVisibilitySection(label: string, rows: Array<{ qty: number; text: string; amount: number; visibility: string }>) {
-    const visible = rows.filter(r => r.visibility !== 'HIDDEN')
+  function drawVisibilitySection(label: string, rows: Array<{ text: string; amount: number; visibility: string }>) {
+    // A row still earns its line if it has a price to show, even without description text —
+    // only truly empty rows (no text, no price shown) are dropped.
+    const visible = rows.filter(r => r.visibility !== 'HIDDEN' && (r.text.trim() || r.visibility === 'DESCRIPTION_AND_PRICE'))
     if (visible.length === 0) return
     checkSpace(11)
     y -= 2
@@ -125,8 +127,9 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
 
     for (const row of visible) {
       checkSpace(9)
-      page.drawText(`×${row.qty}`, { x: 48, y: y - 6, size: 6.5, font, color: TEXT })
-      page.drawText(row.text.substring(0, 55), { x: 70, y: y - 6, size: 6.5, font, color: TEXT })
+      if (row.text.trim()) {
+        page.drawText(row.text.substring(0, 70), { x: 48, y: y - 6, size: 6.5, font, color: TEXT })
+      }
       if (row.visibility === 'DESCRIPTION_AND_PRICE') {
         page.drawText(fmt(row.amount), { x: W - 100, y: y - 6, size: 6.5, font: fontBold, color: TEXT })
       }
@@ -151,21 +154,18 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
     // Cortes y piezas
     drawVisibilitySection('Cortes y piezas:', item.cuts.map((cut: any) => {
       const edgeBandCost = (cut.edgeBands ?? []).reduce((s: number, eb: any) => s + toNumber(eb.subtotalCost), 0)
-      const label = `${cut.materialNameSnapshot ?? ''}${cut.description ? ' · ' + cut.description : ''}`
-      return { qty: cut.quantity, text: label, amount: toNumber(cut.subtotalCost) + edgeBandCost, visibility: cut.pdfVisibility }
+      return { text: cut.description ?? '', amount: toNumber(cut.subtotalCost) + edgeBandCost, visibility: cut.pdfVisibility }
     }))
 
     // Herrajes y accesorios
     drawVisibilitySection('Herrajes y accesorios:', item.accessories.map((acc: any) => {
-      const label = `${acc.materialNameSnapshot ?? ''}${acc.description ? ' · ' + acc.description : ''}`
-      return { qty: acc.quantity, text: label, amount: toNumber(acc.subtotalCost), visibility: acc.pdfVisibility }
+      return { text: acc.description ?? '', amount: toNumber(acc.subtotalCost), visibility: acc.pdfVisibility }
     }))
 
     // Adicionales — sin MO
     const additionals = (item as any).additionals ?? []
     drawVisibilitySection('Adicionales:', additionals.map((add: any) => {
-      const label = `${add.materialNameSnapshot ?? ''}${add.description ? ' · ' + add.description : ''}`
-      return { qty: add.quantity, text: label, amount: toNumber(add.subtotalCost), visibility: add.pdfVisibility }
+      return { text: add.description ?? '', amount: toNumber(add.subtotalCost), visibility: add.pdfVisibility }
     }))
 
     y -= 4
